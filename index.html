@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ProScope</title>
+    <meta
+      name="description"
+      content="Field-first inspections with photo evidence, professional reports, and shareable links your team can open from anywhere."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="top-nav">
+        <div class="nav-inner">
+          <a class="brand" href="/" aria-label="ProScope">
+            <span class="brand-letter">P</span>
+            <span class="brand-letter">R</span>
+            <span class="brand-letter">O</span>
+            <span class="brand-letter">S</span>
+            <span class="brand-letter">C</span>
+            <span class="brand-letter">O</span>
+            <span class="brand-letter">P</span>
+            <span class="brand-letter">E</span>
+          </a>
+          <nav class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#workflows">Workflows</a>
+            <a href="#walkthrough">Walkthrough</a>
+          </nav>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="hero-fallback"></div>
+        <video autoplay muted loop playsinline preload="metadata">
+          <source src="./media/hero.mp4" type="video/mp4" />
+        </video>
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+          <div class="eyebrow">ProScope Platform</div>
+          <h1>Capture, Scope, and Share in One Field Workflow.</h1>
+          <p>
+            Built for adjusters and contractors who need faster documentation.
+            ProScope combines pre-labeled photos, voice-to-note, built-in CRM,
+            LiDAR tools, and scope-ready reporting.
+          </p>
+          <form id="hero-report-form" class="report-link-box">
+            <label for="hero-report-url">Report link</label>
+            <div class="report-link-row">
+              <input
+                id="hero-report-url"
+                class="input"
+                placeholder="Paste report URL..."
+                autocomplete="url"
+              />
+              <button class="btn btn-primary" type="submit">Open</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section id="features" class="section">
+        <h2>Core Features</h2>
+        <p class="muted">
+          Everything here is based on live ProScope functionality.
+        </p>
+        <div class="grid top-gap">
+          <article class="card">
+            <h3>Pre-Labeling + Voice-to-Note</h3>
+            <p class="muted">
+              Capture field notes quickly and keep photos organized by section
+              and damage status.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Built-in CRM</h3>
+            <p class="muted">
+              Manage assignments, contacts, and claim details from one place in
+              the app.
+            </p>
+          </article>
+          <article class="card">
+            <h3>LiDAR-Enabled Scanning</h3>
+            <p class="muted">
+              Use LiDAR on compatible devices for enhanced field capture and
+              measurement workflows.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Scope & Report Export</h3>
+            <p class="muted">
+              Build scope-ready PDF reports and review before sharing.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Shareable Report Links</h3>
+            <p class="muted">
+              Open report links in-browser for quick review by adjusters,
+              office teams, and stakeholders.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Roof + Slope Workflows</h3>
+            <p class="muted">
+              Structured exterior, roof component, and slope capture flows keep
+              documentation consistent.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="workflows" class="section section-band">
+        <h2>How ProScope Moves Work Forward</h2>
+        <div class="steps">
+          <article class="step">
+            <h3>1. Capture On Site</h3>
+            <p class="muted">
+              Start assignments, collect photos, add voice notes, and tag
+              details while you inspect.
+            </p>
+          </article>
+          <article class="step">
+            <h3>2. Build the Scope</h3>
+            <p class="muted">
+              Document roof, exterior, and component details with consistent
+              structured inputs.
+            </p>
+          </article>
+          <article class="step">
+            <h3>3. Share the Report</h3>
+            <p class="muted">
+              Export the scope PDF and share links for fast review and next
+              actions.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section builder-note-wrap">
+        <div class="builder-note">
+          <p class="builder-eyebrow">Built Different</p>
+          <h2>A field app built by someone in the field.</h2>
+          <p class="muted">
+            ProScope is shaped by real inspection days, not boardroom guesses.
+            Fast capture, clean organization, and report-ready output from the
+            first walkthrough to final handoff.
+          </p>
+        </div>
+      </section>
+
+      <section id="walkthrough" class="section section-band">
+        <h2>Product Walkthrough</h2>
+        <div class="walkthrough-card">
+          <p class="muted">
+            A full YouTube walkthrough is coming soon so teams can see exactly
+            how ProScope works in the field.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="#" aria-disabled="true">YouTube Video Coming Soon</a>
+            <a class="btn btn-secondary" href="mailto:altitude.inspectors@gmail.com">Contact ProScope</a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="site-footer">
+        <p>ProScope</p>
+        <div class="footer-links">
+          <a href="./open/">Open Report Link</a>
+          <a href="#walkthrough">Walkthrough</a>
+        </div>
+      </footer>
+    </main>
+    <script>
+      function normalizeUrl(input) {
+        const value = input.trim();
+        if (!value) return null;
+        try {
+          const url = new URL(value.startsWith("http") ? value : `https://${value}`);
+          return url.toString();
+        } catch {
+          return null;
+        }
+      }
+
+      const heroForm = document.getElementById("hero-report-form");
+      const heroInput = document.getElementById("hero-report-url");
+
+      heroForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const parsed = normalizeUrl(heroInput.value);
+        if (!parsed) {
+          alert("Please paste a valid report URL.");
+          return;
+        }
+        window.location.href = `./open/?report=${encodeURIComponent(parsed)}`;
+      });
+    </script>
+  </body>
+  </html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Open Report Link | ProScope</title>
+    <meta
+      name="description"
+      content="Paste a ProScope report URL to preview and open it."
+    />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <div class="lookup-wrap">
+        <a href="../">← Back to home</a>
+        <h1 style="margin-bottom: 8px">Open Your ProScope Link</h1>
+        <p class="muted">
+          Paste a report URL from the app to preview, open, and download.
+        </p>
+
+        <div class="lookup-card">
+          <form id="lookup-form">
+            <label for="report-link">Report link</label>
+            <div class="lookup-row">
+              <input
+                id="report-link"
+                class="input"
+                placeholder="https://..."
+                autocomplete="url"
+              />
+              <button class="btn btn-primary" type="submit">Preview</button>
+            </div>
+          </form>
+
+          <p id="invalid" style="display: none; color: #ff8f8f; margin-top: 14px">
+            That link is not valid. Paste a full URL from the app.
+          </p>
+
+          <div id="actions" class="lookup-row" style="display: none; margin-top: 16px">
+            <a id="open-link" class="btn btn-secondary" href="#" target="_blank"
+              >Open in new tab</a
+            >
+            <a id="download-link" class="btn btn-primary" href="#" download
+              >Download</a
+            >
+          </div>
+
+          <iframe
+            id="preview-frame"
+            class="preview-frame"
+            title="Report preview"
+            style="display: none"
+          ></iframe>
+        </div>
+      </div>
+    </main>
+    <script src="./open.js"></script>
+  </body>
+  </html>
