@@ -12,6 +12,28 @@ function isActiveStatus(status: string | null) {
   return normalized !== "completed" && normalized !== "closed" && normalized !== "archived";
 }
 
+function shortDateTime(value: string | null) {
+  if (!value) return "Not scheduled";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Not scheduled";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function cityStateFromAddress(address: string | null | undefined) {
+  const value = (address ?? "").trim();
+  if (!value) return "Location not set";
+  const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  }
+  return value;
+}
+
 export default function DashboardHomePage() {
   const [jobs, setJobs] = useState<DashboardJob[]>([]);
   const [shareLinks, setShareLinks] = useState<OwnerSharePackage[]>([]);
@@ -137,7 +159,7 @@ export default function DashboardHomePage() {
     if (overdue) {
       items.push({
         key: "overdue",
-        label: "Past scheduled jobs",
+        label: "Past Due Jobs",
         count: overdue,
         href: "/jobs?filter=past_due",
       });
@@ -151,7 +173,7 @@ export default function DashboardHomePage() {
     if (failed) {
       items.push({
         key: "failed",
-        label: "Jobs with issues",
+        label: "Issue Jobs",
         count: failed,
         href: "/jobs?filter=issues",
       });
@@ -165,7 +187,7 @@ export default function DashboardHomePage() {
     if (pendingReview) {
       items.push({
         key: "pending",
-        label: "Pending review",
+        label: "Pending Review",
         count: pendingReview,
         href: "/jobs?filter=pending_review",
       });
@@ -176,7 +198,7 @@ export default function DashboardHomePage() {
       if (missingReports) {
         items.push({
           key: "missing-reports",
-          label: "Active jobs missing report",
+          label: "Missing Reports",
           count: missingReports,
           // Missing report filter is not cleanly supported in /jobs yet.
         });
@@ -195,22 +217,6 @@ export default function DashboardHomePage() {
         <p className="muted">Prioritized office view for jobs, reports, and sharing activity.</p>
       </div>
 
-      <div className="dashboard-quick-actions">
-        <Link href="/jobs" className="btn btn-primary">
-          View Jobs
-        </Link>
-        <Link href="/calendar" className="btn btn-secondary">
-          Calendar
-        </Link>
-        <button
-          className="btn btn-secondary"
-          disabled
-          title="New job creation is not available in current web schema."
-        >
-          New Job
-        </button>
-      </div>
-
       {loading ? <p className="muted">Loading dashboard...</p> : null}
 
       {!loading ? (
@@ -223,7 +229,10 @@ export default function DashboardHomePage() {
             <article className="card">
               <h4>Reports Ready</h4>
               {reportsUnavailable ? (
-                <p className="muted">Report availability unavailable right now.</p>
+                <>
+                  <p className="office-kpi-value">--</p>
+                  <p className="muted">Report status syncing.</p>
+                </>
               ) : (
                 <p className="office-kpi-value">{reportReadyCount ?? 0}</p>
               )}
@@ -240,14 +249,14 @@ export default function DashboardHomePage() {
               <div className="office-list">
                 {needsAttentionItems.map((item) => (
                   item.href ? (
-                    <Link key={item.key} href={item.href} className="office-list-row">
-                      <strong>{item.label}</strong>
-                      <small>{item.count} job(s)</small>
+                    <Link key={item.key} href={item.href} className="office-list-row needs-attention-row">
+                      <strong>{item.count} {item.label}</strong>
+                      <small>Action needed</small>
                     </Link>
                   ) : (
-                    <div key={item.key} className="office-list-row">
-                      <strong>{item.label}</strong>
-                      <small>{item.count} job(s)</small>
+                    <div key={item.key} className="office-list-row needs-attention-row">
+                      <strong>{item.count} {item.label}</strong>
+                      <small>Review required</small>
                     </div>
                   )
                 ))}
@@ -266,11 +275,8 @@ export default function DashboardHomePage() {
                 {recentJobs.map((job) => (
                   <Link key={job.id} href={`/jobs/${job.id}`} className="office-list-row">
                     <strong>{job.title}</strong>
-                    <span>{job.address}</span>
-                    <small>
-                      {(job.status ?? "scheduled").toLowerCase()} •{" "}
-                      {job.updated_at ? new Date(job.updated_at).toLocaleString() : "No recent update"}
-                    </small>
+                    <span className="muted">{cityStateFromAddress(job.address)}</span>
+                    <small>{shortDateTime(job.scheduled_at)}</small>
                   </Link>
                 ))}
                 {!recentJobs.length && !jobsUnavailable ? (
@@ -283,32 +289,31 @@ export default function DashboardHomePage() {
             </article>
           </div>
 
-          <article className="card">
-            <h4>Recent Share Links</h4>
-            <div className="office-list">
-              {recentShareLinks.map((link) => (
-                <a
-                  key={link.token}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="office-list-row"
-                >
-                  <strong>{link.title}</strong>
-                  <small>
-                    Expires {new Date(link.expiresAt).toLocaleDateString()} •{" "}
-                    {link.isRevoked ? "Revoked" : "Active"}
-                  </small>
-                </a>
-              ))}
-              {!recentShareLinks.length && !shareUnavailable ? (
-                <p className="muted">No share links created yet. Use a job workspace to create one.</p>
-              ) : null}
-              {shareUnavailable ? (
-                <p className="muted">Share activity unavailable right now.</p>
-              ) : null}
-            </div>
-          </article>
+          {(!shareUnavailable || recentShareLinks.length > 0) ? (
+            <article className="card">
+              <h4>Recent Share Links</h4>
+              <div className="office-list">
+                {recentShareLinks.map((link) => (
+                  <a
+                    key={link.token}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="office-list-row"
+                  >
+                    <strong>{link.title}</strong>
+                    <small>
+                      Expires {new Date(link.expiresAt).toLocaleDateString()} •{" "}
+                      {link.isRevoked ? "Revoked" : "Active"}
+                    </small>
+                  </a>
+                ))}
+                {!recentShareLinks.length ? (
+                  <p className="muted">No share links yet. Create one from a job in one click.</p>
+                ) : null}
+              </div>
+            </article>
+          ) : null}
         </>
       ) : null}
     </section>

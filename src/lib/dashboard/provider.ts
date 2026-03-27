@@ -20,6 +20,38 @@ export async function listDashboardJobs(): Promise<DashboardJob[]> {
   return (data ?? []) as DashboardJob[];
 }
 
+export async function checkDashboardJobCreateSupport(): Promise<boolean> {
+  const { error } = await supabase
+    .from("jobs")
+    .select("id,title,address,notes,scheduled_at")
+    .limit(1);
+  return !error;
+}
+
+export async function createDashboardJob(input: {
+  title: string;
+  address: string;
+  notes?: string | null;
+  scheduledAt?: string | null;
+}): Promise<DashboardJob> {
+  // Keep creation payload minimal so web uses the same shared job shape.
+  const payload = {
+    title: input.title.trim(),
+    address: input.address.trim(),
+    notes: input.notes?.trim() ? input.notes.trim() : null,
+    scheduled_at: input.scheduledAt ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .insert(payload)
+    .select("id,title,address,status,notes,scheduled_at,updated_at")
+    .single();
+
+  if (error) throw error;
+  return data as DashboardJob;
+}
+
 export async function updateDashboardJob(
   jobId: string,
   patch: {

@@ -662,6 +662,20 @@ a {
   flex-wrap: wrap;
 }
 
+.office-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1200;
+  border: 1px solid rgba(134, 239, 172, 0.45);
+  background: rgba(20, 83, 45, 0.92);
+  color: #dcfce7;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(2, 6, 16, 0.45);
+}
+
 .office-content {
   padding: 20px 24px 28px;
 }
@@ -919,6 +933,25 @@ a {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.needs-attention-row {
+  border-color: rgba(255, 106, 42, 0.28);
+  background: rgba(255, 106, 42, 0.08);
+}
+
+.needs-attention-row strong::before {
+  content: "!";
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: #0a0c10;
+  background: rgba(255, 170, 140, 0.95);
+  font-weight: 800;
 }
 
 .office-tabs {

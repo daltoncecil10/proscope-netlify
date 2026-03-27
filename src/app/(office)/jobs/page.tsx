@@ -88,6 +88,7 @@ export default function JobsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const createdParam = searchParams.get("created") ?? "";
   const [jobs, setJobs] = useState<DashboardJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +130,21 @@ export default function JobsPage() {
 
   useEffect(() => {
     void refreshJobs();
+  }, [refreshJobs]);
+
+  useEffect(() => {
+    if (!createdParam) return;
+    void refreshJobs();
+  }, [createdParam, refreshJobs]);
+
+  useEffect(() => {
+    const handler = () => {
+      void refreshJobs();
+    };
+    window.addEventListener("proscope:job-created", handler);
+    return () => {
+      window.removeEventListener("proscope:job-created", handler);
+    };
   }, [refreshJobs]);
 
   useEffect(() => {
