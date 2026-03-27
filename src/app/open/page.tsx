@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
+import { useAuthGuard } from "@/lib/auth/use-auth-guard";
 
 function normalizeUrl(input: string): string | null {
   const value = input.trim();
@@ -15,6 +16,7 @@ function normalizeUrl(input: string): string | null {
 }
 
 export default function OpenReportPage() {
+  const { authLoading, user } = useAuthGuard();
   const [input, setInput] = useState("");
   const [submitted, setSubmitted] = useState("");
   const parsedUrl = useMemo(() => normalizeUrl(submitted), [submitted]);
@@ -24,10 +26,22 @@ export default function OpenReportPage() {
     setSubmitted(input);
   };
 
+  if (authLoading || !user) {
+    return (
+      <main className="page">
+        <section className="dashboard-auth-wrap">
+          <div className="dashboard-auth-card">
+            <p className="muted">Loading secure report viewer...</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="page">
       <div className="lookup-wrap">
-        <Link href="/">← Back to home</Link>
+        <Link href="/dashboard">← Back to dashboard</Link>
         <h1 style={{ marginBottom: 8 }}>Open Your ProScope Link</h1>
         <p className="muted">
           Paste a report URL from the app to preview, open, and download.

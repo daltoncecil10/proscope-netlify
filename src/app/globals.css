@@ -572,3 +572,286 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+.office-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  background: radial-gradient(1200px 700px at 50% 10%, #111a2b 0%, #06080d 55%);
+}
+
+.office-sidebar {
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(5, 8, 14, 0.94);
+  padding: 22px 16px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.office-sidebar-title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.office-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.office-nav-item {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #dce6fa;
+}
+
+.office-nav-item.active {
+  border-color: rgba(255, 106, 42, 0.75);
+  background: rgba(255, 106, 42, 0.14);
+  color: #fff;
+}
+
+.office-main {
+  min-width: 0;
+}
+
+.office-topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(6, 9, 15, 0.75);
+  backdrop-filter: blur(8px);
+}
+
+.office-topbar h2 {
+  margin: 4px 0 0;
+}
+
+.office-topbar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.office-search-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.office-search-input {
+  min-width: 220px;
+}
+
+.office-account {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.office-content {
+  padding: 20px 24px 28px;
+}
+
+.office-page {
+  display: grid;
+  gap: 14px;
+}
+
+.office-page-header h3 {
+  margin: 0 0 6px;
+}
+
+.office-page-header p {
+  margin: 0;
+}
+
+.office-kpi-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.office-kpi-value {
+  margin: 10px 0 0;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.office-section-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.office-list {
+  display: grid;
+  gap: 8px;
+}
+
+.office-list-row {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.office-filter-bar {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.office-inline-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.office-inline-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.office-table-wrap {
+  overflow: auto;
+}
+
+.office-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.office-table th,
+.office-table td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.office-table th {
+  color: #dbe7fa;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.office-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.office-tab {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.02);
+  color: #f5f7fb;
+  border-radius: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+.office-tab.active {
+  border-color: rgba(255, 106, 42, 0.8);
+  background: rgba(255, 106, 42, 0.16);
+}
+
+.job-workspace-page {
+  gap: 16px;
+}
+
+.job-workspace-header {
+  padding-bottom: 4px;
+}
+
+.job-meta-list {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.job-meta-row {
+  display: grid;
+  gap: 2px;
+}
+
+.job-meta-row dt {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9db0cc;
+}
+
+.job-meta-row dd {
+  margin: 0;
+  color: #dce6fa;
+}
+
+.job-photos-subhead {
+  margin-top: 6px;
+}
+
+.job-photos-subhead h4 {
+  margin: 0 0 4px;
+}
+
+.job-photos-subhead p {
+  margin: 0;
+}
+
+.job-photo-stamp {
+  margin: 0;
+  font-size: 12px;
+}
+
+.job-photo-tag-summary {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  font-size: 12px;
+}
+
+.office-active-btn {
+  border-color: rgba(255, 106, 42, 0.75);
+  background: rgba(255, 106, 42, 0.14);
+}
+
+@media (max-width: 1040px) {
+  .office-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .office-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}
+
+@media (max-width: 760px) {
+  .office-content {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .office-tab {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .job-photo-tag-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}

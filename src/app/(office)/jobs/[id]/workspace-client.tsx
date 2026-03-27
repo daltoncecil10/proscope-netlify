@@ -1,0 +1,941 @@
+"use client";
+
+import { useMemo, useState, useEffect } from "react";
+import Link from "next/link";
+import {
+  checkDocumentsSupport,
+  deleteDashboardDocument,
+  deleteDashboardPhoto,
+  listDashboardDocuments,
+  listDashboardJobs,
+  listDashboardPhotos,
+  updateDashboardJob,
+  updateDashboardPhoto,
+  uploadDashboardDocument,
+} from "@/lib/dashboard/provider";
+import {
+  createOwnerSharePackage,
+  getDashboardReportActions,
+  listOwnerSharePackages,
+  updateOwnerSharePackage,
+} from "@/lib/share/provider";
+import type {
+  DashboardDocument,
+  DashboardJob,
+  DashboardPhoto,
+} from "@/lib/dashboard/types";
+import type { OwnerSharePackage } from "@/lib/share/types";
+
+type WorkspaceTab = "overview" | "photos" | "reports" | "documents" | "share" | "crm";
+
+type PhotoTags = {
+  structure: string;
+  section: string;
+  elevation: string;
+  component: string;
+};
+
+function toLocalDateTimeInput(value: string | null | undefined) {
+  if (!value) return "";
+  const ms = new Date(value).getTime();
+  if (!Number.isFinite(ms)) return "";
+  return new Date(ms).toISOString().slice(0, 16);
+}
+
+function toIsoOrNull(value: string) {
+  if (!value.trim()) return null;
+  const ms = new Date(value).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
+}
+
+function parseCategoryToTags(category: string | null | undefined): PhotoTags {
+  const parts = (category ?? "")
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return {
+    structure: parts[0] ?? "",
+    section: parts[1] ?? "",
+    elevation: parts[2] ?? "",
+    component: parts[3] ?? "",
+  };
+}
+
+function composeCategoryFromTags(tags: PhotoTags) {
+  return [tags.structure, tags.section, tags.elevation, tags.component]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join("/");
+}
+
+export function JobWorkspaceClient({ jobId }: { jobId: string }) {
+  const [tab, setTab] = useState<WorkspaceTab>("overview");
+
+  const [jobs, setJobs] = useState<DashboardJob[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+
+  const [photos, setPhotos] = useState<DashboardPhoto[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [photosError, setPhotosError] = useState<string | null>(null);
+  const [savingPhotoId, setSavingPhotoId] = useState("");
+  const [deletingPhotoId, setDeletingPhotoId] = useState("");
+  const [activeLightboxIndex, setActiveLightboxIndex] = useState(-1);
+  const [filters, setFilters] = useState<PhotoTags>({
+    structure: "",
+    section: "",
+    elevation: "",
+    component: "",
+  });
+  const [editCaption, setEditCaption] = useState<Record<string, string>>({});
+  const [editTags, setEditTags] = useState<Record<string, PhotoTags>>({});
+
+  const [savingJob, setSavingJob] = useState(false);
+  const [jobForm, setJobForm] = useState({
+    title: "",
+    address: "",
+    status: "",
+    notes: "",
+  });
+
+  const [shareLinks, setShareLinks] = useState<OwnerSharePackage[]>([]);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareCreating, setShareCreating] = useState(false);
+  const [shareSavingToken, setShareSavingToken] = useState("");
+  const [copiedToken, setCopiedToken] = useState("");
+
+  const [reportActions, setReportActions] = useState<{
+    reportUrl: string | null;
+    shareUrl: string | null;
+  }>({ reportUrl: null, shareUrl: null });
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  const [documentsSupported, setDocumentsSupported] = useState<boolean | null>(null);
+  const [documents, setDocuments] = useState<DashboardDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [deletingDocumentId, setDeletingDocumentId] = useState("");
+
+  const selectedJob = useMemo(
+    () => jobs.find((candidate) => candidate.id === jobId) ?? null,
+    [jobId, jobs]
+  );
+
+  const filteredPhotos = useMemo(() => {
+    return photos.filter((photo) => {
+      const tags = editTags[photo.id] ?? parseCategoryToTags(photo.category);
+      return (
+        (!filters.structure || tags.structure === filters.structure) &&
+        (!filters.section || tags.section === filters.section) &&
+        (!filters.elevation || tags.elevation === filters.elevation) &&
+        (!filters.component || tags.component === filters.component)
+      );
+    });
+  }, [editTags, filters, photos]);
+
+  const filterOptions = useMemo(() => {
+    const build = (extractor: (tags: PhotoTags) => string) => {
+      const values = new Set<string>();
+      photos.forEach((photo) => {
+        const tags = editTags[photo.id] ?? parseCategoryToTags(photo.category);
+        const value = extractor(tags).trim();
+        if (value) values.add(value);
+      });
+      return [...values].sort((a, b) => a.localeCompare(b));
+    };
+    return {
+      structure: build((tags) => tags.structure),
+      section: build((tags) => tags.section),
+      elevation: build((tags) => tags.elevation),
+      component: build((tags) => tags.component),
+    };
+  }, [editTags, photos]);
+
+  const activeLightboxPhoto =
+    activeLightboxIndex >= 0 ? filteredPhotos[activeLightboxIndex] ?? null : null;
+
+  const refreshJobs = async () => {
+    setJobsLoading(true);
+    setJobsError(null);
+    try {
+      setJobs(await listDashboardJobs());
+    } catch (error) {
+      setJobsError((error as Error)?.message ?? "Unable to load jobs.");
+    } finally {
+      setJobsLoading(false);
+    }
+  };
+
+  const refreshPhotos = async () => {
+    if (!jobId) return;
+    setPhotosLoading(true);
+    setPhotosError(null);
+    try {
+      const nextPhotos = await listDashboardPhotos(jobId);
+      setPhotos(nextPhotos);
+      const nextCaption: Record<string, string> = {};
+      const nextTags: Record<string, PhotoTags> = {};
+      nextPhotos.forEach((photo) => {
+        nextCaption[photo.id] = photo.caption ?? "";
+        nextTags[photo.id] = parseCategoryToTags(photo.category);
+      });
+      setEditCaption(nextCaption);
+      setEditTags(nextTags);
+      setActiveLightboxIndex(-1);
+    } catch (error) {
+      setPhotosError((error as Error)?.message ?? "Unable to load photos.");
+    } finally {
+      setPhotosLoading(false);
+    }
+  };
+
+  const refreshShareLinks = async () => {
+    if (!jobId) return;
+    setShareLoading(true);
+    setShareError(null);
+    try {
+      setShareLinks(await listOwnerSharePackages(jobId));
+    } catch (error) {
+      setShareError((error as Error)?.message ?? "Unable to load share links.");
+      setShareLinks([]);
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const refreshReportActions = async () => {
+    if (!jobId) return;
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      setReportActions(await getDashboardReportActions(jobId));
+    } catch (error) {
+      setReportError((error as Error)?.message ?? "Unable to load report actions.");
+      setReportActions({ reportUrl: null, shareUrl: null });
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const refreshDocuments = async () => {
+    if (!jobId) return;
+    setDocumentsLoading(true);
+    setDocumentsError(null);
+    try {
+      setDocuments(await listDashboardDocuments(jobId));
+    } catch (error) {
+      setDocumentsError((error as Error)?.message ?? "Unable to load documents.");
+      setDocuments([]);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshJobs();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedJob) {
+      setJobForm({ title: "", address: "", status: "", notes: "" });
+      return;
+    }
+    setJobForm({
+      title: selectedJob.title ?? "",
+      address: selectedJob.address ?? "",
+      status: selectedJob.status ?? "",
+      notes: selectedJob.notes ?? "",
+    });
+  }, [selectedJob]);
+
+  useEffect(() => {
+    if (!jobId) return;
+    void refreshPhotos();
+    void refreshShareLinks();
+    void refreshReportActions();
+    void checkDocumentsSupport().then((supported) => {
+      setDocumentsSupported(supported);
+      if (supported) void refreshDocuments();
+    });
+  }, [jobId]);
+
+  const handleSaveJob = async () => {
+    if (!jobId) return;
+    setSavingJob(true);
+    try {
+      await updateDashboardJob(jobId, {
+        title: jobForm.title.trim() || "Untitled job",
+        address: jobForm.address.trim() || "Address pending",
+        status: jobForm.status.trim() || null,
+        notes: jobForm.notes.trim() || null,
+      });
+      await refreshJobs();
+    } catch (error) {
+      window.alert((error as Error)?.message ?? "Unable to save job details.");
+    } finally {
+      setSavingJob(false);
+    }
+  };
+
+  const handleSavePhoto = async (photo: DashboardPhoto) => {
+    setSavingPhotoId(photo.id);
+    try {
+      const nextCategory = composeCategoryFromTags(
+        editTags[photo.id] ?? parseCategoryToTags(photo.category)
+      );
+      await updateDashboardPhoto(photo.id, {
+        caption: (editCaption[photo.id] ?? "").trim() || null,
+        category: nextCategory || null,
+      });
+      await refreshPhotos();
+    } catch (error) {
+      window.alert((error as Error)?.message ?? "Unable to save photo metadata.");
+    } finally {
+      setSavingPhotoId("");
+    }
+  };
+
+  const handleDeletePhoto = async (photo: DashboardPhoto) => {
+    if (!window.confirm("Delete this photo? This cannot be undone.")) return;
+    setDeletingPhotoId(photo.id);
+    try {
+      await deleteDashboardPhoto({ id: photo.id, storagePath: photo.storage_path });
+      await refreshPhotos();
+    } catch (error) {
+      window.alert((error as Error)?.message ?? "Unable to delete photo.");
+    } finally {
+      setDeletingPhotoId("");
+    }
+  };
+
+  const handleCreateShareLink = async () => {
+    if (!selectedJob) return;
+    setShareCreating(true);
+    try {
+      await createOwnerSharePackage({
+        primaryJobId: selectedJob.id,
+        title: `${selectedJob.title} - Shared Package`,
+        address: selectedJob.address,
+        expiresInDays: 30,
+      });
+      await refreshShareLinks();
+      await refreshReportActions();
+    } catch (error) {
+      window.alert((error as Error)?.message ?? "Unable to create share link.");
+    } finally {
+      setShareCreating(false);
+    }
+  };
+
+  const handleSaveShareLink = async (
+    token: string,
+    patch: { isRevoked?: boolean; allowDownload?: boolean; expiresAt?: string }
+  ) => {
+    setShareSavingToken(token);
+    try {
+      await updateOwnerSharePackage(token, patch);
+      await refreshShareLinks();
+      await refreshReportActions();
+    } catch (error) {
+      window.alert((error as Error)?.message ?? "Unable to update share link.");
+    } finally {
+      setShareSavingToken("");
+    }
+  };
+
+  const handleCopyShareLink = async (url: string, token: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedToken(token);
+      window.setTimeout(() => setCopiedToken(""), 1800);
+    } catch {
+      window.alert("Unable to copy link on this browser.");
+    }
+  };
+
+  const handleUploadDocument = async (file: File | null) => {
+    if (!file || !jobId || !documentsSupported) return;
+    setUploadingDocument(true);
+    try {
+      await uploadDashboardDocument({ jobId, file });
+      await refreshDocuments();
+    } catch (error) {
+      window.alert((error as Error)?.message ?? "Unable to upload document.");
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
+  const handleDeleteDocument = async (document: DashboardDocument) => {
+    if (!window.confirm("Delete this document? This cannot be undone.")) return;
+    setDeletingDocumentId(document.id);
+    try {
+      await deleteDashboardDocument({
+        id: document.id,
+        storagePath: document.storage_path,
+      });
+      await refreshDocuments();
+    } catch (error) {
+      window.alert((error as Error)?.message ?? "Unable to delete document.");
+    } finally {
+      setDeletingDocumentId("");
+    }
+  };
+
+  if (!jobId) {
+    return (
+      <section className="office-page">
+        <p className="dashboard-error">Job id is missing.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="office-page job-workspace-page">
+      <div className="office-page-header job-workspace-header">
+        <div>
+          <h3>{selectedJob?.title ?? "Job Workspace"}</h3>
+          <p className="muted">{selectedJob?.address ?? "Loading job details..."}</p>
+        </div>
+        <div className="office-topbar-actions">
+          <Link href="/jobs" className="btn btn-secondary">
+            Back to Jobs
+          </Link>
+          <button className="btn btn-secondary" onClick={() => void refreshJobs()}>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {jobsLoading ? <p className="muted">Loading job...</p> : null}
+      {jobsError ? <p className="dashboard-error">{jobsError}</p> : null}
+
+      {selectedJob ? (
+        <>
+          <div className="office-tabs" role="tablist" aria-label="Job workspace sections">
+            {(
+              ["overview", "photos", "reports", "documents", "share", "crm"] as WorkspaceTab[]
+            ).map((nextTab) => (
+              <button
+                key={nextTab}
+                className={`office-tab ${tab === nextTab ? "active" : ""}`}
+                onClick={() => setTab(nextTab)}
+                role="tab"
+                aria-selected={tab === nextTab}
+              >
+                {nextTab[0].toUpperCase()}
+                {nextTab.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {tab === "overview" ? (
+            <div className="office-section-grid">
+              <article className="card">
+                <h4>Job Info</h4>
+                <dl className="job-meta-list">
+                  <div className="job-meta-row">
+                    <dt>Title</dt>
+                    <dd>{selectedJob.title}</dd>
+                  </div>
+                  <div className="job-meta-row">
+                    <dt>Address</dt>
+                    <dd>{selectedJob.address}</dd>
+                  </div>
+                  <div className="job-meta-row">
+                    <dt>Status</dt>
+                    <dd>{selectedJob.status ?? "scheduled"}</dd>
+                  </div>
+                  <div className="job-meta-row">
+                    <dt>Notes</dt>
+                    <dd>{selectedJob.notes ?? "—"}</dd>
+                  </div>
+                </dl>
+              </article>
+              <article className="card">
+                <h4>Timeline</h4>
+                <dl className="job-meta-list">
+                  <div className="job-meta-row">
+                    <dt>Scheduled</dt>
+                    <dd>
+                      {selectedJob.scheduled_at
+                        ? new Date(selectedJob.scheduled_at).toLocaleString()
+                        : "Not scheduled"}
+                    </dd>
+                  </div>
+                  <div className="job-meta-row">
+                    <dt>Updated</dt>
+                    <dd>
+                      {selectedJob.updated_at
+                        ? new Date(selectedJob.updated_at).toLocaleString()
+                        : "Unknown"}
+                    </dd>
+                  </div>
+                  <div className="job-meta-row">
+                    <dt>Photos</dt>
+                    <dd>{photos.length}</dd>
+                  </div>
+                  <div className="job-meta-row">
+                    <dt>Share Links</dt>
+                    <dd>{shareLinks.length}</dd>
+                  </div>
+                </dl>
+              </article>
+            </div>
+          ) : null}
+
+          {tab === "crm" ? (
+            <div className="dashboard-panel">
+              <h4>CRM (Job-Centered)</h4>
+              <p className="muted">Keep updates lightweight: status, notes, and core job details.</p>
+              <div className="dashboard-job-editor">
+                <input
+                  className="input"
+                  placeholder="Job title"
+                  value={jobForm.title}
+                  onChange={(event) =>
+                    setJobForm((prev) => ({ ...prev, title: event.target.value }))
+                  }
+                />
+                <input
+                  className="input"
+                  placeholder="Property address"
+                  value={jobForm.address}
+                  onChange={(event) =>
+                    setJobForm((prev) => ({ ...prev, address: event.target.value }))
+                  }
+                />
+                <input
+                  className="input"
+                  placeholder="Status"
+                  value={jobForm.status}
+                  onChange={(event) =>
+                    setJobForm((prev) => ({ ...prev, status: event.target.value }))
+                  }
+                />
+                <textarea
+                  className="input dashboard-notes-input"
+                  placeholder="Notes"
+                  value={jobForm.notes}
+                  onChange={(event) =>
+                    setJobForm((prev) => ({ ...prev, notes: event.target.value }))
+                  }
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={() => void handleSaveJob()}
+                  disabled={savingJob}
+                >
+                  {savingJob ? "Saving..." : "Save Job Updates"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {tab === "reports" ? (
+            <div className="dashboard-share-panel">
+              <div className="dashboard-share-header">
+                <h3>Report Actions</h3>
+                <p className="muted">
+                  Status: {reportActions.reportUrl ? "Ready" : reportLoading ? "Preparing" : "Pending"}
+                </p>
+              </div>
+              <div className="dashboard-share-row">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() =>
+                    reportActions.reportUrl && window.open(reportActions.reportUrl, "_blank")
+                  }
+                  disabled={!reportActions.reportUrl || reportLoading}
+                >
+                  View Report
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    if (!reportActions.reportUrl) return;
+                    const link = document.createElement("a");
+                    link.href = reportActions.reportUrl;
+                    link.download = "";
+                    link.click();
+                  }}
+                  disabled={!reportActions.reportUrl || reportLoading}
+                >
+                  Download PDF
+                </button>
+              </div>
+              {reportLoading ? <p className="muted">Checking report availability...</p> : null}
+              {reportError ? <p className="dashboard-error">{reportError}</p> : null}
+            </div>
+          ) : null}
+
+          {tab === "share" ? (
+            <div className="dashboard-share-panel">
+              <div className="dashboard-share-header">
+                <h3>Share Links</h3>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => void handleCreateShareLink()}
+                  disabled={shareCreating}
+                >
+                  {shareCreating ? "Creating..." : "Create Link"}
+                </button>
+              </div>
+              {shareLoading ? <p className="muted">Loading share links...</p> : null}
+              {shareError ? <p className="dashboard-error">{shareError}</p> : null}
+              <div className="dashboard-share-list">
+                {shareLinks.map((link) => (
+                  <div key={link.token} className="dashboard-share-item">
+                    <div className="dashboard-share-row">
+                      <strong>{link.title}</strong>
+                      <div className="dashboard-share-actions">
+                        <a href={link.url} target="_blank" rel="noreferrer" className="muted">
+                          Open
+                        </a>
+                        <button
+                          className="btn btn-secondary dashboard-inline-btn"
+                          onClick={() => void handleCopyShareLink(link.url, link.token)}
+                        >
+                          {copiedToken === link.token ? "Copied" : "Copy"}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="muted">Expires: {new Date(link.expiresAt).toLocaleString()}</p>
+                    <div className="dashboard-share-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={!link.isRevoked}
+                          onChange={(event) =>
+                            void handleSaveShareLink(link.token, {
+                              isRevoked: !event.target.checked,
+                            })
+                          }
+                          disabled={shareSavingToken === link.token}
+                        />{" "}
+                        Active
+                      </label>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={link.allowDownload}
+                          onChange={(event) =>
+                            void handleSaveShareLink(link.token, {
+                              allowDownload: event.target.checked,
+                            })
+                          }
+                          disabled={shareSavingToken === link.token}
+                        />{" "}
+                        Allow downloads
+                      </label>
+                    </div>
+                    <div className="dashboard-share-row">
+                      <input
+                        className="input"
+                        type="datetime-local"
+                        value={toLocalDateTimeInput(link.expiresAt)}
+                        onChange={(event) => {
+                          const nextIso = toIsoOrNull(event.target.value);
+                          if (!nextIso) return;
+                          void handleSaveShareLink(link.token, { expiresAt: nextIso });
+                        }}
+                        disabled={shareSavingToken === link.token}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {!shareLinks.length && !shareLoading ? (
+                  <p className="muted">No share links for this job.</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {tab === "documents" ? (
+            <div className="dashboard-panel">
+              <h4>Documents</h4>
+              {documentsSupported === null ? <p className="muted">Checking support...</p> : null}
+              {documentsSupported === false ? (
+                <p className="muted">Documents will be available soon</p>
+              ) : null}
+              {documentsSupported ? (
+                <>
+                  <div className="dashboard-share-row">
+                    <input
+                      type="file"
+                      onChange={(event) =>
+                        void handleUploadDocument(event.target.files?.[0] ?? null)
+                      }
+                      disabled={uploadingDocument}
+                    />
+                    {uploadingDocument ? <p className="muted">Uploading...</p> : null}
+                  </div>
+                  {documentsLoading ? <p className="muted">Loading documents...</p> : null}
+                  {documentsError ? <p className="dashboard-error">{documentsError}</p> : null}
+                  <div className="office-list">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="office-list-row">
+                        <strong>{doc.file_name}</strong>
+                        <small>
+                          {doc.created_at ? new Date(doc.created_at).toLocaleString() : "Unknown date"}
+                        </small>
+                        <div className="dashboard-share-actions">
+                          {doc.signed_url ? (
+                            <a href={doc.signed_url} className="muted" target="_blank" rel="noreferrer">
+                              Download
+                            </a>
+                          ) : null}
+                          <button
+                            className="btn btn-secondary dashboard-inline-btn"
+                            onClick={() => void handleDeleteDocument(doc)}
+                            disabled={deletingDocumentId === doc.id}
+                          >
+                            {deletingDocumentId === doc.id ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {!documents.length && !documentsLoading ? (
+                      <p className="muted">No documents uploaded.</p>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
+          {tab === "photos" ? (
+            <>
+              <div className="job-photos-subhead">
+                <h4>Photo Gallery</h4>
+                <p className="muted">Filter, relabel, and manage captured photos.</p>
+              </div>
+              <div className="dashboard-filter-row">
+                <select
+                  className="input"
+                  value={filters.structure}
+                  onChange={(event) =>
+                    setFilters((prev) => ({ ...prev, structure: event.target.value }))
+                  }
+                >
+                  <option value="">All structures</option>
+                  {filterOptions.structure.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input"
+                  value={filters.section}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, section: event.target.value }))}
+                >
+                  <option value="">All sections</option>
+                  {filterOptions.section.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input"
+                  value={filters.elevation}
+                  onChange={(event) =>
+                    setFilters((prev) => ({ ...prev, elevation: event.target.value }))
+                  }
+                >
+                  <option value="">All elevations/slopes</option>
+                  {filterOptions.elevation.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input"
+                  value={filters.component}
+                  onChange={(event) =>
+                    setFilters((prev) => ({ ...prev, component: event.target.value }))
+                  }
+                >
+                  <option value="">All components</option>
+                  {filterOptions.component.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {photosLoading ? <p className="muted">Loading photos...</p> : null}
+              {photosError ? <p className="dashboard-error">{photosError}</p> : null}
+              <div className="dashboard-photo-grid">
+                {filteredPhotos.map((photo, idx) => (
+                  <article key={photo.id} className="dashboard-photo-card">
+                    {photo.signed_url ? (
+                      <img
+                        src={photo.signed_url}
+                        alt={photo.caption ?? "Job photo"}
+                        loading="lazy"
+                        onClick={() => setActiveLightboxIndex(idx)}
+                      />
+                    ) : (
+                      <div className="dashboard-photo-placeholder">No preview URL</div>
+                    )}
+                    <div className="dashboard-photo-meta">
+                      <p className="job-photo-stamp muted">
+                        Captured:{" "}
+                        {photo.created_at
+                          ? new Date(photo.created_at).toLocaleString()
+                          : "Unknown"}
+                      </p>
+                      <input
+                        className="input"
+                        placeholder="Caption"
+                        value={editCaption[photo.id] ?? ""}
+                        onChange={(event) =>
+                          setEditCaption((prev) => ({ ...prev, [photo.id]: event.target.value }))
+                        }
+                      />
+                      <div className="dashboard-filter-row">
+                        <input
+                          className="input"
+                          placeholder="Structure"
+                          value={editTags[photo.id]?.structure ?? ""}
+                          onChange={(event) =>
+                            setEditTags((prev) => ({
+                              ...prev,
+                              [photo.id]: {
+                                ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
+                                structure: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <input
+                          className="input"
+                          placeholder="Section"
+                          value={editTags[photo.id]?.section ?? ""}
+                          onChange={(event) =>
+                            setEditTags((prev) => ({
+                              ...prev,
+                              [photo.id]: {
+                                ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
+                                section: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <input
+                          className="input"
+                          placeholder="Elevation/Slope"
+                          value={editTags[photo.id]?.elevation ?? ""}
+                          onChange={(event) =>
+                            setEditTags((prev) => ({
+                              ...prev,
+                              [photo.id]: {
+                                ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
+                                elevation: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <input
+                          className="input"
+                          placeholder="Component"
+                          value={editTags[photo.id]?.component ?? ""}
+                          onChange={(event) =>
+                            setEditTags((prev) => ({
+                              ...prev,
+                              [photo.id]: {
+                                ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
+                                component: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="job-photo-tag-summary">
+                        <span className="muted">
+                          {editTags[photo.id]?.structure || "No structure"}
+                        </span>
+                        <span className="muted">
+                          {editTags[photo.id]?.section || "No section"}
+                        </span>
+                        <span className="muted">
+                          {editTags[photo.id]?.elevation || "No elevation/slope"}
+                        </span>
+                        <span className="muted">
+                          {editTags[photo.id]?.component || "No component"}
+                        </span>
+                      </div>
+                      <div className="dashboard-share-actions">
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => void handleSavePhoto(photo)}
+                          disabled={savingPhotoId === photo.id}
+                        >
+                          {savingPhotoId === photo.id ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => void handleDeletePhoto(photo)}
+                          disabled={deletingPhotoId === photo.id}
+                        >
+                          {deletingPhotoId === photo.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+                {!filteredPhotos.length && !photosLoading ? (
+                  <p className="muted">No photos match current filters.</p>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </>
+      ) : (
+        <p className="dashboard-error">Job not found.</p>
+      )}
+
+      {activeLightboxPhoto && activeLightboxPhoto.signed_url ? (
+        <div
+          className="lightbox-overlay"
+          onClick={() => setActiveLightboxIndex(-1)}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="lightbox-content" onClick={(event) => event.stopPropagation()}>
+            <img src={activeLightboxPhoto.signed_url} alt="Enlarged photo" />
+            <div className="lightbox-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setActiveLightboxIndex((prev) => Math.max(0, prev - 1))}
+                disabled={activeLightboxIndex <= 0}
+              >
+                Prev
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() =>
+                  setActiveLightboxIndex((prev) => Math.min(filteredPhotos.length - 1, prev + 1))
+                }
+                disabled={activeLightboxIndex >= filteredPhotos.length - 1}
+              >
+                Next
+              </button>
+              <button className="btn btn-primary" onClick={() => setActiveLightboxIndex(-1)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}

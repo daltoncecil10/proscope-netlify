@@ -1,7 +1,12 @@
 import { supabase } from "@/lib/supabase/client";
-import type { DashboardJob, DashboardPhoto } from "@/lib/dashboard/types";
+import type {
+  DashboardDocument,
+  DashboardJob,
+  DashboardPhoto,
+} from "@/lib/dashboard/types";
 
 const JOB_FILES_BUCKET = "job-files";
+const JOB_DOCUMENTS_TABLE = "job_documents";
 
 export async function listDashboardJobs(): Promise<DashboardJob[]> {
   const { data, error } = await supabase
@@ -80,5 +85,73 @@ export async function deleteDashboardPhoto(photo: {
   const { error: storageError } = await supabase.storage
     .from(JOB_FILES_BUCKET)
     .remove([photo.storagePath]);
+  if (storageError) throw storageError;
+}
+
+export async function checkDocumentsSupport(): Promise<boolean> {
+  const { error } = await supabase
+    .from(JOB_DOCUMENTS_TABLE)
+    .select("id")
+    .limit(1);
+  return !error;
+}
+
+export async function listDashboardDocuments(jobId: string): Promise<DashboardDocument[]> {
+  const { data, error } = await supabase
+    .from(JOB_DOCUMENTS_TABLE)
+    .select("id,job_id,storage_path,file_name,created_at")
+    .eq("job_id", jobId)
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (error) throw error;
+
+  const rows = (data ?? []) as DashboardDocument[];
+  const withUrls = await Promise.all(
+    rows.map(async (doc) => {
+      const { data: signed } = await supabase.storage
+        .from(JOB_FILES_BUCKET)
+        .createSignedUrl(doc.storage_path, 60 * 60);
+      return { ...doc, signed_url: signed?.signedUrl ?? null };
+    })
+  );
+
+  return withUrls;
+}
+
+export async function uploadDashboardDocument(input: {
+  jobId: string;
+  file: File;
+}): Promise<void> {
+  const cleanedFileName = input.file.name.replace(/[^\w.-]+/g, "_");
+  const storagePath = `${input.jobId}/documents/${Date.now()}-${cleanedFileName}`;
+  const { error: uploadError } = await supabase.storage
+    .from(JOB_FILES_BUCKET)
+    .upload(storagePath, input.file, {
+      upsert: false,
+      contentType: input.file.type || "application/octet-stream",
+    });
+  if (uploadError) throw uploadError;
+
+  const { error: insertError } = await supabase.from(JOB_DOCUMENTS_TABLE).insert({
+    job_id: input.jobId,
+    storage_path: storagePath,
+    file_name: input.file.name,
+  });
+  if (insertError) throw insertError;
+}
+
+export async function deleteDashboardDocument(doc: {
+  id: string;
+  storagePath: string;
+}): Promise<void> {
+  const { error: rowError } = await supabase
+    .from(JOB_DOCUMENTS_TABLE)
+    .delete()
+    .eq("id", doc.id);
+  if (rowError) throw rowError;
+
+  const { error: storageError } = await supabase.storage
+    .from(JOB_FILES_BUCKET)
+    .remove([doc.storagePath]);
   if (storageError) throw storageError;
 }

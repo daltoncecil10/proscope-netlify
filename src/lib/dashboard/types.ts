@@ -17,3 +17,12 @@ export type DashboardPhoto = {
   created_at: string | null;
   signed_url: string | null;
 };
+
+export type DashboardDocument = {
+  id: string;
+  job_id: string;
+  storage_path: string;
+  file_name: string;
+  created_at: string | null;
+  signed_url: string | null;
+};
