@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   archiveDashboardJob,
+  checkDashboardJobCreateSupport,
   listDashboardJobs,
   listDashboardPhotos,
   updateDashboardJob,
@@ -65,6 +66,16 @@ function getAssignee(job: DashboardJob): string | null {
   return null;
 }
 
+function cityStateFromAddress(address: string | null | undefined) {
+  const value = (address ?? "").trim();
+  if (!value) return "Location not set";
+  const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  }
+  return value;
+}
+
 function formatSchedule(value: string | null) {
   if (!value) return "Not scheduled";
   const when = new Date(value);
@@ -111,6 +122,8 @@ export default function JobsPage() {
   const [deletingJobId, setDeletingJobId] = useState("");
   const [savingJobId, setSavingJobId] = useState("");
   const [actioningJobId, setActioningJobId] = useState("");
+  const [activeMenuJobId, setActiveMenuJobId] = useState("");
+  const [canCreateJob, setCanCreateJob] = useState<boolean | null>(null);
 
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   const [bulkScheduleAt, setBulkScheduleAt] = useState("");
@@ -131,6 +144,22 @@ export default function JobsPage() {
   useEffect(() => {
     void refreshJobs();
   }, [refreshJobs]);
+
+  useEffect(() => {
+    let active = true;
+    void checkDashboardJobCreateSupport()
+      .then((supported) => {
+        if (!active) return;
+        setCanCreateJob(supported);
+      })
+      .catch(() => {
+        if (!active) return;
+        setCanCreateJob(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!createdParam) return;
@@ -292,22 +321,18 @@ export default function JobsPage() {
     let today = 0;
     let upcoming = 0;
     let overdue = 0;
-    let unassigned = 0;
     filteredJobs.forEach((job) => {
       const urgency = toUrgency(job);
       if (urgency === "today") today += 1;
       if (urgency === "upcoming") upcoming += 1;
       if (urgency === "overdue") overdue += 1;
-      if (hasAssigneeSupport && !getAssignee(job)) unassigned += 1;
     });
     return {
-      total: filteredJobs.length,
       today,
       upcoming,
       overdue,
-      unassigned,
     };
-  }, [filteredJobs, hasAssigneeSupport]);
+  }, [filteredJobs]);
 
   const quickFilterLabel = useMemo(() => {
     if (quickFilter === "past_due") return "Past due jobs";
@@ -419,11 +444,9 @@ export default function JobsPage() {
   };
 
   const handleQuickStatus = async (job: DashboardJob) => {
-    const normalized = normalizeStatus(job.status);
-    const nextStatus = normalized === "completed" ? "cancelled" : "completed";
     setActioningJobId(job.id);
     try {
-      await updateDashboardJob(job.id, { status: nextStatus });
+      await updateDashboardJob(job.id, { status: "completed" });
       await refreshJobs();
     } catch (statusError) {
       window.alert((statusError as Error)?.message ?? "Unable to update job status.");
@@ -478,8 +501,19 @@ export default function JobsPage() {
   return (
     <section className="office-page">
       <div className="office-page-header">
-        <h3>Jobs</h3>
-        <p className="muted">Operational board for scheduling, assignment, and fast job actions.</p>
+        <div>
+          <h3>Jobs</h3>
+          <p className="muted">Operational board for scheduling, assignment, and fast job actions.</p>
+        </div>
+        {canCreateJob ? (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => window.dispatchEvent(new CustomEvent("proscope:open-new-job"))}
+          >
+            + New Job
+          </button>
+        ) : null}
       </div>
 
       {quickFilter ? (
@@ -497,10 +531,6 @@ export default function JobsPage() {
 
       <div className="jobs-summary-strip">
         <article className="jobs-summary-card">
-          <p className="muted">Result Set</p>
-          <strong>{summary.total}</strong>
-        </article>
-        <article className="jobs-summary-card">
           <p className="muted">Today</p>
           <strong>{summary.today}</strong>
         </article>
@@ -512,23 +542,17 @@ export default function JobsPage() {
           <p className="muted">Overdue</p>
           <strong>{summary.overdue}</strong>
         </article>
-        {hasAssigneeSupport ? (
-          <article className="jobs-summary-card">
-            <p className="muted">Unassigned</p>
-            <strong>{summary.unassigned}</strong>
-          </article>
-        ) : null}
       </div>
 
-      <div className="office-filter-bar">
+      <div className="office-filter-bar jobs-filter-bar">
         <input
-          className="input"
-          placeholder="Search title, address, notes, status, assignee..."
+          className="input jobs-filter-search"
+          placeholder="Search jobs..."
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
         <select
-          className="input"
+          className="input jobs-filter-control jobs-filter-secondary"
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
         >
@@ -540,7 +564,7 @@ export default function JobsPage() {
           ))}
         </select>
         <select
-          className="input"
+          className="input jobs-filter-control jobs-filter-secondary"
           value={assigneeFilter}
           onChange={(event) => setAssigneeFilter(event.target.value)}
           disabled={!hasAssigneeSupport}
@@ -554,7 +578,7 @@ export default function JobsPage() {
           ))}
         </select>
         <select
-          className="input"
+          className="input jobs-filter-control jobs-filter-secondary"
           value={datePreset}
           onChange={(event) => setDatePreset(event.target.value as DatePreset)}
         >
@@ -567,13 +591,13 @@ export default function JobsPage() {
         {datePreset === "custom" ? (
           <>
             <input
-              className="input"
+              className="input jobs-filter-control jobs-filter-secondary"
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
             />
             <input
-              className="input"
+              className="input jobs-filter-control jobs-filter-secondary"
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
@@ -581,7 +605,7 @@ export default function JobsPage() {
           </>
         ) : null}
         <select
-          className="input"
+          className="input jobs-filter-control jobs-filter-tertiary"
           value={sortKey}
           onChange={(event) => setSortKey(event.target.value as SortKey)}
         >
@@ -601,7 +625,6 @@ export default function JobsPage() {
         ) : null}
       </div>
 
-      {loading ? <p className="muted">Loading jobs...</p> : null}
       {error ? <p className="dashboard-error">{error}</p> : null}
 
       {!loading && selectedCount > 0 ? (
@@ -672,10 +695,11 @@ export default function JobsPage() {
                   className={`jobs-row jobs-row-${toUrgency(job)}`}
                   onClick={() => handleRowOpen(job.id)}
                 >
-                  <td onClick={(event) => event.stopPropagation()}>
+                  <td>
                     <input
                       type="checkbox"
                       checked={selectedJobIds.includes(job.id)}
+                      onClick={(event) => event.stopPropagation()}
                       onChange={(event) => handleToggleRow(job.id, event.target.checked)}
                       aria-label={`Select ${job.title}`}
                     />
@@ -695,7 +719,7 @@ export default function JobsPage() {
                     </div>
                   </td>
                   <td className="jobs-address-cell" title={job.address}>
-                    {job.address}
+                    {cityStateFromAddress(job.address)}
                   </td>
                   <td className="jobs-scheduled-cell">{formatSchedule(job.scheduled_at)}</td>
                   <td>{getAssignee(job) ?? "Unassigned"}</td>
@@ -706,7 +730,7 @@ export default function JobsPage() {
                       </span>
                     </td>
                   ) : null}
-                  <td onClick={(event) => event.stopPropagation()}>
+                  <td>
                     <div className="dashboard-share-actions">
                       <Link
                         className="btn btn-secondary office-inline-btn"
@@ -719,49 +743,62 @@ export default function JobsPage() {
                         className="btn btn-secondary office-inline-btn"
                         onClick={(event) => {
                           event.stopPropagation();
-                          void handleSaveJobToComputer(job);
+                          setActiveMenuJobId((prev) => (prev === job.id ? "" : job.id));
                         }}
-                        disabled={savingJobId === job.id}
                       >
-                        {savingJobId === job.id ? "Saving..." : "Save"}
+                        ...
                       </button>
-                      <button
-                        className="btn btn-secondary office-inline-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleQuickReschedule(job);
-                        }}
-                        disabled={actioningJobId === job.id}
-                      >
-                        Reschedule
-                      </button>
-                      <button
-                        className="btn btn-secondary office-inline-btn"
-                        disabled
-                        title="Assign action is unavailable in current schema"
-                      >
-                        Assign
-                      </button>
-                      <button
-                        className="btn btn-secondary office-inline-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleQuickStatus(job);
-                        }}
-                        disabled={actioningJobId === job.id}
-                      >
-                        {normalizeStatus(job.status) === "completed" ? "Cancel" : "Complete"}
-                      </button>
-                      <button
-                        className="btn btn-secondary office-inline-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleDeleteJob(job);
-                        }}
-                        disabled={deletingJobId === job.id}
-                      >
-                        {deletingJobId === job.id ? "Deleting..." : "Delete"}
-                      </button>
+                      {activeMenuJobId === job.id ? (
+                        <div
+                          className="jobs-action-menu"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <button
+                            className="btn btn-secondary office-inline-btn"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActiveMenuJobId("");
+                              void handleSaveJobToComputer(job);
+                            }}
+                            disabled={savingJobId === job.id}
+                          >
+                            {savingJobId === job.id ? "Saving..." : "Save"}
+                          </button>
+                          <button
+                            className="btn btn-secondary office-inline-btn"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActiveMenuJobId("");
+                              void handleQuickReschedule(job);
+                            }}
+                            disabled={actioningJobId === job.id}
+                          >
+                            Reschedule
+                          </button>
+                          <button
+                            className="btn btn-secondary office-inline-btn"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActiveMenuJobId("");
+                              void handleQuickStatus(job);
+                            }}
+                            disabled={actioningJobId === job.id || normalizeStatus(job.status) === "completed"}
+                          >
+                            Complete
+                          </button>
+                          <button
+                            className="btn btn-secondary office-inline-btn"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActiveMenuJobId("");
+                              void handleDeleteJob(job);
+                            }}
+                            disabled={deletingJobId === job.id}
+                          >
+                            {deletingJobId === job.id ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -769,13 +806,17 @@ export default function JobsPage() {
             </tbody>
           </table>
           {!jobs.length ? (
-            <p className="muted">No jobs yet. Create jobs in the app to start scheduling here.</p>
+            <p className="muted">No jobs yet. Create your first job to get started.</p>
           ) : null}
           {jobs.length > 0 && !filteredJobs.length ? (
             <p className="muted">No results match the current filters.</p>
           ) : null}
         </div>
-      ) : null}
+      ) : (
+        <div className="jobs-loading-shell">
+          <p className="muted">Loading jobs...</p>
+        </div>
+      )}
     </section>
   );
 }

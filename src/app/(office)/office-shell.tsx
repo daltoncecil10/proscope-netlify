@@ -66,6 +66,18 @@ export function OfficeShell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const openHandler = () => {
+      if (!canCreateJob) return;
+      resetCreateForm();
+      setShowCreateJob(true);
+    };
+    window.addEventListener("proscope:open-new-job", openHandler);
+    return () => {
+      window.removeEventListener("proscope:open-new-job", openHandler);
+    };
+  }, [canCreateJob]);
+
+  useEffect(() => {
     if (!toastMessage) return;
     const timer = window.setTimeout(() => setToastMessage(""), 2400);
     return () => window.clearTimeout(timer);
@@ -177,18 +189,6 @@ export function OfficeShell({ children }: { children: ReactNode }) {
               </button>
             </form>
             <div className="office-account">
-              {canCreateJob ? (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    resetCreateForm();
-                    setShowCreateJob(true);
-                  }}
-                >
-                  New Job
-                </button>
-              ) : null}
               <span className="muted">{user.email ?? "ProScope user"}</span>
               <button
                 className="btn btn-secondary"

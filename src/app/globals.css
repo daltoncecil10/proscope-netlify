@@ -693,6 +693,14 @@ a {
   margin: 0;
 }
 
+.office-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .office-kpi-grid {
   display: grid;
   gap: 12px;
@@ -729,6 +737,53 @@ a {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.jobs-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.jobs-filter-bar .input {
+  min-width: 0;
+}
+
+.jobs-filter-search {
+  flex: 1 1 360px;
+  max-width: 520px;
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.jobs-filter-control {
+  flex: 1 1 190px;
+  min-width: 170px;
+}
+
+.jobs-filter-secondary {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.jobs-filter-tertiary {
+  flex-basis: 200px;
+  min-width: 180px;
+  margin-left: 8px;
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+@media (max-width: 1180px) {
+  .jobs-filter-search {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+
+  .jobs-filter-tertiary {
+    margin-left: 0;
+  }
 }
 
 .office-inline-checkbox {
@@ -808,10 +863,22 @@ a {
   flex: 0 1 260px;
 }
 
+.jobs-loading-shell {
+  min-height: 320px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(9, 13, 20, 0.65);
+  display: grid;
+  align-items: start;
+  padding: 16px;
+}
+
 .jobs-table th,
 .jobs-table td {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   color: #e4ecfb;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .jobs-table td {
@@ -823,11 +890,32 @@ a {
 }
 
 .jobs-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.jobs-row td {
+  transition: background-color 0.15s ease;
+}
+
+.jobs-row:hover td {
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .jobs-row-overdue {
-  background: rgba(127, 29, 29, 0.14);
+  background: rgba(127, 29, 29, 0.06);
+}
+
+.jobs-row-overdue td {
+  border-bottom-color: rgba(254, 202, 202, 0.2);
+}
+
+.jobs-row-overdue td:first-child {
+  border-left: 3px solid rgba(248, 113, 113, 0.75);
+}
+
+.jobs-row-overdue .jobs-urgency-badge.overdue {
+  background: rgba(153, 27, 27, 0.45);
+  color: #fee2e2;
 }
 
 .jobs-row-today {
@@ -880,6 +968,25 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   color: #d4def0;
+}
+
+.jobs-action-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  display: grid;
+  gap: 6px;
+  min-width: 140px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(8, 12, 20, 0.95);
+  box-shadow: 0 10px 26px rgba(2, 6, 16, 0.5);
+}
+
+.dashboard-share-actions {
+  position: relative;
 }
 
 .jobs-scheduled-cell {
@@ -1073,5 +1180,20 @@ a {
 
   .jobs-address-cell {
     max-width: 180px;
+  }
+
+  .office-page-header {
+    align-items: stretch;
+  }
+
+  .jobs-filter-search,
+  .jobs-filter-control {
+    flex: 1 1 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .jobs-filter-search {
+    border-color: rgba(255, 106, 42, 0.3);
   }
 }
