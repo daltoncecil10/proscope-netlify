@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { MouseEventHandler, useCallback, useEffect, useMemo, useState } from "react";
 import {
   archiveDashboardJob,
   checkDashboardJobCreateSupport,
@@ -124,10 +124,6 @@ export default function JobsPage() {
   const [actioningJobId, setActioningJobId] = useState("");
   const [activeMenuJobId, setActiveMenuJobId] = useState("");
   const [canCreateJob, setCanCreateJob] = useState<boolean | null>(null);
-
-  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
-  const [bulkScheduleAt, setBulkScheduleAt] = useState("");
-  const [bulkWorking, setBulkWorking] = useState(false);
 
   const refreshJobs = useCallback(async () => {
     setLoading(true);
@@ -303,14 +299,6 @@ export default function JobsPage() {
     statusFilter,
   ]);
 
-  const filteredIdSet = useMemo(() => new Set(filteredJobs.map((job) => job.id)), [filteredJobs]);
-  useEffect(() => {
-    setSelectedJobIds((prev) => prev.filter((id) => filteredIdSet.has(id)));
-  }, [filteredIdSet]);
-
-  const selectedCount = selectedJobIds.length;
-  const allVisibleSelected = filteredJobs.length > 0 && filteredJobs.every((job) => selectedJobIds.includes(job.id));
-
   const statusSet = useMemo(
     () => new Set(filteredJobs.map((job) => normalizeStatus(job.status))),
     [filteredJobs]
@@ -408,19 +396,8 @@ export default function JobsPage() {
     router.push(`/jobs/${jobId}`);
   };
 
-  const handleToggleRow = (jobId: string, checked: boolean) => {
-    setSelectedJobIds((prev) => {
-      if (checked) return [...new Set([...prev, jobId])];
-      return prev.filter((id) => id !== jobId);
-    });
-  };
-
-  const handleToggleSelectAllVisible = (checked: boolean) => {
-    if (!checked) {
-      setSelectedJobIds((prev) => prev.filter((id) => !filteredIdSet.has(id)));
-      return;
-    }
-    setSelectedJobIds((prev) => [...new Set([...prev, ...filteredJobs.map((job) => job.id)])]);
+  const stopRowClick: MouseEventHandler<HTMLElement> = (event) => {
+    event.stopPropagation();
   };
 
   const handleQuickReschedule = async (job: DashboardJob) => {
@@ -455,54 +432,10 @@ export default function JobsPage() {
     }
   };
 
-  const runBulkAction = async (type: "cancel" | "archive" | "reschedule") => {
-    if (!selectedJobIds.length) return;
-    setBulkWorking(true);
-    try {
-      if (type === "reschedule") {
-        if (!bulkScheduleAt) {
-          window.alert("Choose a schedule date/time first.");
-          return;
-        }
-        const when = new Date(bulkScheduleAt);
-        if (!Number.isFinite(when.getTime())) {
-          window.alert("Invalid reschedule date.");
-          return;
-        }
-        await Promise.all(
-          selectedJobIds.map((id) =>
-            updateDashboardJob(id, {
-              scheduled_at: when.toISOString(),
-            })
-          )
-        );
-      }
-      if (type === "cancel") {
-        await Promise.all(
-          selectedJobIds.map((id) =>
-            updateDashboardJob(id, {
-              status: "cancelled",
-            })
-          )
-        );
-      }
-      if (type === "archive") {
-        await Promise.all(selectedJobIds.map((id) => archiveDashboardJob(id)));
-      }
-      setSelectedJobIds([]);
-      await refreshJobs();
-    } catch (bulkError) {
-      window.alert((bulkError as Error)?.message ?? "Bulk action failed.");
-    } finally {
-      setBulkWorking(false);
-    }
-  };
-
   return (
     <section className="office-page">
       <div className="office-page-header">
         <div>
-          <h3>Jobs</h3>
           <p className="muted">Operational board for scheduling, assignment, and fast job actions.</p>
         </div>
         {canCreateJob ? (
@@ -517,9 +450,8 @@ export default function JobsPage() {
       </div>
 
       {quickFilter ? (
-        <div className="jobs-bulk-bar">
-          <strong>Quick filter:</strong>
-          <span className="muted">{quickFilterLabel}</span>
+        <div className="jobs-quick-filter">
+          <strong>{quickFilterLabel} (active)</strong>
           <button
             className="btn btn-secondary office-inline-btn"
             onClick={() => setQuickFilter("")}
@@ -563,20 +495,21 @@ export default function JobsPage() {
             </option>
           ))}
         </select>
-        <select
-          className="input jobs-filter-control jobs-filter-secondary"
-          value={assigneeFilter}
-          onChange={(event) => setAssigneeFilter(event.target.value)}
-          disabled={!hasAssigneeSupport}
-          title={hasAssigneeSupport ? "Filter by assignee" : "Assignee not available in current schema"}
-        >
-          <option value="">{hasAssigneeSupport ? "All assignees" : "Assignee unavailable"}</option>
-          {assigneeOptions.map((assignee) => (
-            <option key={assignee} value={assignee}>
-              {assignee}
-            </option>
-          ))}
-        </select>
+        {hasAssigneeSupport ? (
+          <select
+            className="input jobs-filter-control jobs-filter-secondary"
+            value={assigneeFilter}
+            onChange={(event) => setAssigneeFilter(event.target.value)}
+            title="Filter by assignee"
+          >
+            <option value="">All assignees</option>
+            {assigneeOptions.map((assignee) => (
+              <option key={assignee} value={assignee}>
+                {assignee}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <select
           className="input jobs-filter-control jobs-filter-secondary"
           value={datePreset}
@@ -627,59 +560,11 @@ export default function JobsPage() {
 
       {error ? <p className="dashboard-error">{error}</p> : null}
 
-      {!loading && selectedCount > 0 ? (
-        <div className="jobs-bulk-bar">
-          <strong>{selectedCount} selected</strong>
-          <button
-            className="btn btn-secondary office-inline-btn"
-            disabled={!hasAssigneeSupport || bulkWorking}
-            title={hasAssigneeSupport ? "Bulk assign" : "Assign is not available in current schema"}
-          >
-            Bulk Assign
-          </button>
-          <input
-            className="input jobs-bulk-input"
-            type="datetime-local"
-            value={bulkScheduleAt}
-            onChange={(event) => setBulkScheduleAt(event.target.value)}
-          />
-          <button
-            className="btn btn-secondary office-inline-btn"
-            onClick={() => void runBulkAction("reschedule")}
-            disabled={bulkWorking}
-          >
-            Bulk Reschedule
-          </button>
-          <button
-            className="btn btn-secondary office-inline-btn"
-            onClick={() => void runBulkAction("cancel")}
-            disabled={bulkWorking}
-          >
-            Bulk Cancel
-          </button>
-          <button
-            className="btn btn-secondary office-inline-btn"
-            onClick={() => void runBulkAction("archive")}
-            disabled={bulkWorking}
-          >
-            Bulk Archive
-          </button>
-        </div>
-      ) : null}
-
       {!loading ? (
         <div className="office-table-wrap">
           <table className="office-table jobs-table">
             <thead>
               <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    onChange={(event) => handleToggleSelectAllVisible(event.target.checked)}
-                    aria-label="Select all visible jobs"
-                  />
-                </th>
                 <th>Title</th>
                 <th>Address</th>
                 <th>Scheduled</th>
@@ -695,15 +580,6 @@ export default function JobsPage() {
                   className={`jobs-row jobs-row-${toUrgency(job)}`}
                   onClick={() => handleRowOpen(job.id)}
                 >
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedJobIds.includes(job.id)}
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={(event) => handleToggleRow(job.id, event.target.checked)}
-                      aria-label={`Select ${job.title}`}
-                    />
-                  </td>
                   <td>
                     <div className="jobs-title-cell">
                       <strong>{job.title}</strong>
@@ -731,35 +607,39 @@ export default function JobsPage() {
                     </td>
                   ) : null}
                   <td>
-                    <div className="dashboard-share-actions">
+                    <div className="dashboard-share-actions jobs-actions">
                       <Link
                         className="btn btn-secondary office-inline-btn"
                         href={`/jobs/${job.id}`}
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={stopRowClick}
+                        onMouseDown={stopRowClick}
                       >
                         Open
                       </Link>
                       <button
                         className="btn btn-secondary office-inline-btn"
                         onClick={(event) => {
-                          event.stopPropagation();
+                          stopRowClick(event);
                           setActiveMenuJobId((prev) => (prev === job.id ? "" : job.id));
                         }}
+                        onMouseDown={stopRowClick}
                       >
                         ...
                       </button>
                       {activeMenuJobId === job.id ? (
                         <div
                           className="jobs-action-menu"
-                          onClick={(event) => event.stopPropagation()}
+                          onClick={stopRowClick}
+                          onMouseDown={stopRowClick}
                         >
                           <button
                             className="btn btn-secondary office-inline-btn"
                             onClick={(event) => {
-                              event.stopPropagation();
+                              stopRowClick(event);
                               setActiveMenuJobId("");
                               void handleSaveJobToComputer(job);
                             }}
+                            onMouseDown={stopRowClick}
                             disabled={savingJobId === job.id}
                           >
                             {savingJobId === job.id ? "Saving..." : "Save"}
@@ -767,10 +647,11 @@ export default function JobsPage() {
                           <button
                             className="btn btn-secondary office-inline-btn"
                             onClick={(event) => {
-                              event.stopPropagation();
+                              stopRowClick(event);
                               setActiveMenuJobId("");
                               void handleQuickReschedule(job);
                             }}
+                            onMouseDown={stopRowClick}
                             disabled={actioningJobId === job.id}
                           >
                             Reschedule
@@ -778,10 +659,11 @@ export default function JobsPage() {
                           <button
                             className="btn btn-secondary office-inline-btn"
                             onClick={(event) => {
-                              event.stopPropagation();
+                              stopRowClick(event);
                               setActiveMenuJobId("");
                               void handleQuickStatus(job);
                             }}
+                            onMouseDown={stopRowClick}
                             disabled={actioningJobId === job.id || normalizeStatus(job.status) === "completed"}
                           >
                             Complete
@@ -789,10 +671,11 @@ export default function JobsPage() {
                           <button
                             className="btn btn-secondary office-inline-btn"
                             onClick={(event) => {
-                              event.stopPropagation();
+                              stopRowClick(event);
                               setActiveMenuJobId("");
                               void handleDeleteJob(job);
                             }}
+                            onMouseDown={stopRowClick}
                             disabled={deletingJobId === job.id}
                           >
                             {deletingJobId === job.id ? "Deleting..." : "Delete"}
