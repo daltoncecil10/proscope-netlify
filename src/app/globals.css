@@ -1021,7 +1021,7 @@ a {
 }
 
 .dashboard-page {
-  gap: 12px;
+  gap: 10px;
 }
 
 .dashboard-quick-actions {
@@ -1032,14 +1032,20 @@ a {
 
 .dashboard-summary-row {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .dashboard-secondary-row {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.dashboard-page .card h4 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .needs-attention-row {

@@ -229,10 +229,7 @@ export default function DashboardHomePage() {
             <article className="card">
               <h4>Reports Ready</h4>
               {reportsUnavailable ? (
-                <>
-                  <p className="office-kpi-value">--</p>
-                  <p className="muted">Report status syncing.</p>
-                </>
+                <p className="office-kpi-value">Syncing</p>
               ) : (
                 <p className="office-kpi-value">{reportReadyCount ?? 0}</p>
               )}
@@ -251,12 +248,10 @@ export default function DashboardHomePage() {
                   item.href ? (
                     <Link key={item.key} href={item.href} className="office-list-row needs-attention-row">
                       <strong>{item.count} {item.label}</strong>
-                      <small>Action needed</small>
                     </Link>
                   ) : (
                     <div key={item.key} className="office-list-row needs-attention-row">
                       <strong>{item.count} {item.label}</strong>
-                      <small>Review required</small>
                     </div>
                   )
                 ))}
