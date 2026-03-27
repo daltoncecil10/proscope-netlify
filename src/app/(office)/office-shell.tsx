@@ -54,6 +54,9 @@ export function OfficeShell({ children }: { children: ReactNode }) {
         <div>
           <p className="eyebrow">ProScope</p>
           <h1 className="office-sidebar-title">Office</h1>
+          <Link href="/" className="muted office-home-link">
+            Back to Home
+          </Link>
         </div>
         <nav className="office-nav">
           {NAV_ITEMS.map((item) => (

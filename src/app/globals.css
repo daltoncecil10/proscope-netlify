@@ -594,6 +594,12 @@ a {
   font-size: 1.5rem;
 }
 
+.office-home-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
 .office-nav {
   display: grid;
   gap: 8px;
@@ -746,6 +752,175 @@ a {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.jobs-summary-strip {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.jobs-summary-card {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(9, 13, 20, 0.86);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.jobs-summary-card p {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.jobs-summary-card strong {
+  font-size: 1.4rem;
+}
+
+.jobs-bulk-bar {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(12, 18, 30, 0.9);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.jobs-bulk-input {
+  min-width: 220px;
+  flex: 0 1 260px;
+}
+
+.jobs-table th,
+.jobs-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e4ecfb;
+}
+
+.jobs-table td {
+  vertical-align: middle;
+}
+
+.jobs-row {
+  cursor: pointer;
+}
+
+.jobs-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.jobs-row-overdue {
+  background: rgba(127, 29, 29, 0.14);
+}
+
+.jobs-row-today {
+  background: rgba(30, 64, 175, 0.13);
+}
+
+.jobs-row-upcoming {
+  background: rgba(67, 56, 202, 0.08);
+}
+
+.jobs-title-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.jobs-urgency-badge {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.jobs-urgency-badge.today {
+  color: #bfdbfe;
+  background: rgba(30, 64, 175, 0.35);
+}
+
+.jobs-urgency-badge.upcoming {
+  color: #ddd6fe;
+  background: rgba(79, 70, 229, 0.35);
+}
+
+.jobs-urgency-badge.overdue {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.45);
+}
+
+.jobs-urgency-badge.unscheduled {
+  color: #dbeafe;
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.jobs-address-cell {
+  max-width: 340px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #d4def0;
+}
+
+.jobs-scheduled-cell {
+  font-weight: 700;
+  color: #f5f7fb;
+  white-space: nowrap;
+}
+
+.jobs-status-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.jobs-status-badge.status-scheduled {
+  background: rgba(30, 64, 175, 0.26);
+  color: #bfdbfe;
+}
+
+.jobs-status-badge.status-completed {
+  background: rgba(22, 101, 52, 0.3);
+  color: #bbf7d0;
+}
+
+.jobs-status-badge.status-cancelled {
+  background: rgba(127, 29, 29, 0.4);
+  color: #fecaca;
+}
+
+.dashboard-page {
+  gap: 12px;
+}
+
+.dashboard-quick-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dashboard-summary-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.dashboard-secondary-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
 .office-tabs {
   display: flex;
   gap: 8px;
@@ -853,5 +1028,17 @@ a {
 
   .job-photo-tag-summary {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .jobs-bulk-bar {
+    align-items: stretch;
+  }
+
+  .jobs-bulk-input {
+    min-width: 100%;
+  }
+
+  .jobs-address-cell {
+    max-width: 180px;
   }
 }

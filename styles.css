@@ -157,23 +157,42 @@ a {
   overflow: hidden;
 }
 
-.hero video,
-.hero .hero-fallback {
+.hero .hero-fallback,
+.hero .hero-ambient {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
 }
 
 .hero-fallback {
-  background: linear-gradient(135deg, #0b1320, #101e35, #0f1522);
+  background:
+    radial-gradient(1200px 420px at 50% -10%, rgba(111, 196, 255, 0.28), transparent 68%),
+    linear-gradient(135deg, #0b1320, #101e35, #0f1522);
+}
+
+.hero-ambient {
+  opacity: 0.35;
+  background:
+    radial-gradient(420px 220px at 22% 30%, rgba(255, 106, 42, 0.36), transparent 75%),
+    radial-gradient(520px 280px at 78% 68%, rgba(111, 196, 255, 0.25), transparent 78%);
+  filter: blur(10px);
+  animation: heroPulse 9s ease-in-out infinite alternate;
 }
 
 .hero-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(to bottom, rgba(4, 6, 10, 0.25), rgba(4, 6, 10, 0.8));
+}
+
+@keyframes heroPulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.07);
+  }
 }
 
 .hero-content {

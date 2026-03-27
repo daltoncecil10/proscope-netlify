@@ -27,9 +27,18 @@ export async function updateDashboardJob(
     address?: string;
     status?: string | null;
     notes?: string | null;
+    scheduled_at?: string | null;
   }
 ) {
   const { error } = await supabase.from("jobs").update(patch).eq("id", jobId);
+  if (error) throw error;
+}
+
+export async function archiveDashboardJob(jobId: string): Promise<void> {
+  const { error } = await supabase
+    .from("jobs")
+    .update({ archived: true })
+    .eq("id", jobId);
   if (error) throw error;
 }
 
