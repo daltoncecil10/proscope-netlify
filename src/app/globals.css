@@ -1048,6 +1048,20 @@ a {
   font-weight: 700;
 }
 
+.calendar-empty-state {
+  min-height: 320px;
+  display: grid;
+  align-items: center;
+}
+
+.calendar-empty-card {
+  max-width: 420px;
+  margin: 0 auto;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
 .needs-attention-row {
   border-color: rgba(255, 106, 42, 0.28);
   background: rgba(255, 106, 42, 0.08);
@@ -1067,26 +1081,102 @@ a {
   font-weight: 800;
 }
 
+.team-page {
+  max-width: 720px;
+}
+
+.team-account-card {
+  display: grid;
+  gap: 12px;
+}
+
+.team-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.settings-page {
+  max-width: 760px;
+  gap: 12px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-section h4 {
+  margin: 0;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.settings-success {
+  color: #bbf7d0;
+  margin: 0;
+}
+
+.settings-theme-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-theme-btn {
+  min-width: 96px;
+}
+
+.settings-theme-btn-active {
+  border-color: rgba(255, 106, 42, 0.8);
+  background: rgba(255, 106, 42, 0.2);
+  color: #fff;
+}
+
 .office-tabs {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  padding-bottom: 4px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(8, 12, 19, 0.55);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .office-tab {
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.02);
-  color: #f5f7fb;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  color: #dce6fa;
   border-radius: 10px;
-  padding: 9px 12px;
+  padding: 9px 14px;
+  font-weight: 600;
   cursor: pointer;
+  opacity: 1;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.office-tab:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f7fb;
 }
 
 .office-tab.active {
-  border-color: rgba(255, 106, 42, 0.8);
-  background: rgba(255, 106, 42, 0.16);
+  border-color: rgba(255, 106, 42, 0.95);
+  background: rgba(255, 106, 42, 0.26);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 106, 42, 0.35) inset;
+}
+
+.office-tab[aria-selected="true"] {
+  color: #fff;
 }
 
 .job-workspace-page {
@@ -1094,7 +1184,26 @@ a {
 }
 
 .job-workspace-header {
-  padding-bottom: 4px;
+  padding-bottom: 2px;
+}
+
+.job-tab-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.job-tab-header {
+  display: grid;
+  gap: 4px;
+}
+
+.job-tab-header h4 {
+  margin: 0;
+  font-size: 1.03rem;
+}
+
+.job-tab-header p {
+  margin: 0;
 }
 
 .job-meta-list {
@@ -1121,8 +1230,34 @@ a {
   color: #dce6fa;
 }
 
+.job-form-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.job-form-field {
+  display: grid;
+  gap: 6px;
+}
+
+.job-form-field-full {
+  grid-column: 1 / -1;
+}
+
+.job-form-label {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #9fb4d2;
+}
+
+.job-primary-actions {
+  justify-content: flex-start;
+}
+
 .job-photos-subhead {
-  margin-top: 6px;
+  margin-top: 2px;
 }
 
 .job-photos-subhead h4 {
@@ -1172,6 +1307,11 @@ a {
     font-size: 13px;
   }
 
+  .office-tabs {
+    gap: 6px;
+    padding: 6px;
+  }
+
   .job-photo-tag-summary {
     grid-template-columns: 1fr 1fr;
   }
@@ -1190,6 +1330,10 @@ a {
 
   .office-page-header {
     align-items: stretch;
+  }
+
+  .job-form-grid {
+    grid-template-columns: 1fr;
   }
 
   .jobs-filter-search,

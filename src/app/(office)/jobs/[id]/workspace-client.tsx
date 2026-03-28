@@ -27,6 +27,14 @@ import type {
 import type { OwnerSharePackage } from "@/lib/share/types";
 
 type WorkspaceTab = "overview" | "photos" | "reports" | "documents" | "share" | "crm";
+const TAB_LABELS: Record<WorkspaceTab, string> = {
+  overview: "Overview",
+  photos: "Photos",
+  reports: "Reports",
+  documents: "Documents",
+  share: "Share",
+  crm: "CRM",
+};
 
 type PhotoTags = {
   structure: string;
@@ -417,9 +425,8 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
       {selectedJob ? (
         <>
           <div className="office-tabs" role="tablist" aria-label="Job workspace sections">
-            {(
-              ["overview", "photos", "reports", "documents", "share", "crm"] as WorkspaceTab[]
-            ).map((nextTab) => (
+            {(["overview", "photos", "reports", "documents", "share", "crm"] as WorkspaceTab[]).map(
+              (nextTab) => (
               <button
                 key={nextTab}
                 className={`office-tab ${tab === nextTab ? "active" : ""}`}
@@ -427,289 +434,331 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                 role="tab"
                 aria-selected={tab === nextTab}
               >
-                {nextTab[0].toUpperCase()}
-                {nextTab.slice(1)}
+                {TAB_LABELS[nextTab]}
               </button>
             ))}
           </div>
 
           {tab === "overview" ? (
-            <div className="office-section-grid">
-              <article className="card">
-                <h4>Job Info</h4>
-                <dl className="job-meta-list">
-                  <div className="job-meta-row">
-                    <dt>Title</dt>
-                    <dd>{selectedJob.title}</dd>
-                  </div>
-                  <div className="job-meta-row">
-                    <dt>Address</dt>
-                    <dd>{selectedJob.address}</dd>
-                  </div>
-                  <div className="job-meta-row">
-                    <dt>Status</dt>
-                    <dd>{selectedJob.status ?? "scheduled"}</dd>
-                  </div>
-                  <div className="job-meta-row">
-                    <dt>Notes</dt>
-                    <dd>{selectedJob.notes ?? "—"}</dd>
-                  </div>
-                </dl>
-              </article>
-              <article className="card">
-                <h4>Timeline</h4>
-                <dl className="job-meta-list">
-                  <div className="job-meta-row">
-                    <dt>Scheduled</dt>
-                    <dd>
-                      {selectedJob.scheduled_at
-                        ? new Date(selectedJob.scheduled_at).toLocaleString()
-                        : "Not scheduled"}
-                    </dd>
-                  </div>
-                  <div className="job-meta-row">
-                    <dt>Updated</dt>
-                    <dd>
-                      {selectedJob.updated_at
-                        ? new Date(selectedJob.updated_at).toLocaleString()
-                        : "Unknown"}
-                    </dd>
-                  </div>
-                  <div className="job-meta-row">
-                    <dt>Photos</dt>
-                    <dd>{photos.length}</dd>
-                  </div>
-                  <div className="job-meta-row">
-                    <dt>Share Links</dt>
-                    <dd>{shareLinks.length}</dd>
-                  </div>
-                </dl>
-              </article>
-            </div>
+            <section className="job-tab-panel">
+              <div className="job-tab-header">
+                <h4>Overview</h4>
+                <p className="muted">Key job metadata and timeline at a glance.</p>
+              </div>
+              <div className="office-section-grid">
+                <article className="card">
+                  <h4>Job Info</h4>
+                  <dl className="job-meta-list">
+                    <div className="job-meta-row">
+                      <dt>Title</dt>
+                      <dd>{selectedJob.title}</dd>
+                    </div>
+                    <div className="job-meta-row">
+                      <dt>Address</dt>
+                      <dd>{selectedJob.address}</dd>
+                    </div>
+                    <div className="job-meta-row">
+                      <dt>Status</dt>
+                      <dd>{selectedJob.status ?? "scheduled"}</dd>
+                    </div>
+                    <div className="job-meta-row">
+                      <dt>Notes</dt>
+                      <dd>{selectedJob.notes ?? "—"}</dd>
+                    </div>
+                  </dl>
+                </article>
+                <article className="card">
+                  <h4>Timeline</h4>
+                  <dl className="job-meta-list">
+                    <div className="job-meta-row">
+                      <dt>Scheduled</dt>
+                      <dd>
+                        {selectedJob.scheduled_at
+                          ? new Date(selectedJob.scheduled_at).toLocaleString()
+                          : "Not scheduled"}
+                      </dd>
+                    </div>
+                    <div className="job-meta-row">
+                      <dt>Updated</dt>
+                      <dd>
+                        {selectedJob.updated_at
+                          ? new Date(selectedJob.updated_at).toLocaleString()
+                          : "Unknown"}
+                      </dd>
+                    </div>
+                    <div className="job-meta-row">
+                      <dt>Photos</dt>
+                      <dd>{photos.length}</dd>
+                    </div>
+                    <div className="job-meta-row">
+                      <dt>Share Links</dt>
+                      <dd>{shareLinks.length}</dd>
+                    </div>
+                  </dl>
+                </article>
+              </div>
+            </section>
           ) : null}
 
           {tab === "crm" ? (
-            <div className="dashboard-panel">
-              <h4>CRM (Job-Centered)</h4>
-              <p className="muted">Keep updates lightweight: status, notes, and core job details.</p>
-              <div className="dashboard-job-editor">
-                <input
-                  className="input"
-                  placeholder="Job title"
-                  value={jobForm.title}
-                  onChange={(event) =>
-                    setJobForm((prev) => ({ ...prev, title: event.target.value }))
-                  }
-                />
-                <input
-                  className="input"
-                  placeholder="Property address"
-                  value={jobForm.address}
-                  onChange={(event) =>
-                    setJobForm((prev) => ({ ...prev, address: event.target.value }))
-                  }
-                />
-                <input
-                  className="input"
-                  placeholder="Status"
-                  value={jobForm.status}
-                  onChange={(event) =>
-                    setJobForm((prev) => ({ ...prev, status: event.target.value }))
-                  }
-                />
-                <textarea
-                  className="input dashboard-notes-input"
-                  placeholder="Notes"
-                  value={jobForm.notes}
-                  onChange={(event) =>
-                    setJobForm((prev) => ({ ...prev, notes: event.target.value }))
-                  }
-                />
-                <button
-                  className="btn btn-primary"
-                  onClick={() => void handleSaveJob()}
-                  disabled={savingJob}
-                >
-                  {savingJob ? "Saving..." : "Save Job Updates"}
-                </button>
+            <section className="job-tab-panel">
+              <div className="job-tab-header">
+                <h4>CRM</h4>
+                <p className="muted">Lightweight, job-focused updates for office follow-up.</p>
               </div>
-            </div>
+              <div className="dashboard-panel">
+                <div className="dashboard-job-editor">
+                  <div className="job-form-grid">
+                    <label className="job-form-field">
+                      <span className="job-form-label">Job Title</span>
+                      <input
+                        className="input"
+                        placeholder="Job title"
+                        value={jobForm.title}
+                        onChange={(event) =>
+                          setJobForm((prev) => ({ ...prev, title: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="job-form-field">
+                      <span className="job-form-label">Property Address</span>
+                      <input
+                        className="input"
+                        placeholder="Property address"
+                        value={jobForm.address}
+                        onChange={(event) =>
+                          setJobForm((prev) => ({ ...prev, address: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="job-form-field">
+                      <span className="job-form-label">Status</span>
+                      <input
+                        className="input"
+                        placeholder="Status"
+                        value={jobForm.status}
+                        onChange={(event) =>
+                          setJobForm((prev) => ({ ...prev, status: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="job-form-field job-form-field-full">
+                      <span className="job-form-label">Notes</span>
+                      <textarea
+                        className="input dashboard-notes-input"
+                        placeholder="Notes"
+                        value={jobForm.notes}
+                        onChange={(event) =>
+                          setJobForm((prev) => ({ ...prev, notes: event.target.value }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="job-primary-actions">
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => void handleSaveJob()}
+                      disabled={savingJob}
+                    >
+                      {savingJob ? "Saving..." : "Save Job Updates"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
           ) : null}
 
           {tab === "reports" ? (
-            <div className="dashboard-share-panel">
-              <div className="dashboard-share-header">
-                <h3>Report Actions</h3>
-                <p className="muted">
-                  Status: {reportActions.reportUrl ? "Ready" : reportLoading ? "Preparing" : "Pending"}
-                </p>
+            <section className="job-tab-panel">
+              <div className="job-tab-header">
+                <h4>Reports</h4>
+                <p className="muted">View and download generated report output.</p>
               </div>
-              <div className="dashboard-share-row">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() =>
-                    reportActions.reportUrl && window.open(reportActions.reportUrl, "_blank")
-                  }
-                  disabled={!reportActions.reportUrl || reportLoading}
-                >
-                  View Report
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    if (!reportActions.reportUrl) return;
-                    const link = document.createElement("a");
-                    link.href = reportActions.reportUrl;
-                    link.download = "";
-                    link.click();
-                  }}
-                  disabled={!reportActions.reportUrl || reportLoading}
-                >
-                  Download PDF
-                </button>
+              <div className="dashboard-share-panel">
+                <div className="dashboard-share-header">
+                  <h3>Report Actions</h3>
+                  <p className="muted">
+                    Status: {reportActions.reportUrl ? "Ready" : reportLoading ? "Preparing" : "Pending"}
+                  </p>
+                </div>
+                <div className="dashboard-share-row job-primary-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() =>
+                      reportActions.reportUrl && window.open(reportActions.reportUrl, "_blank")
+                    }
+                    disabled={!reportActions.reportUrl || reportLoading}
+                  >
+                    View Report
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      if (!reportActions.reportUrl) return;
+                      const link = document.createElement("a");
+                      link.href = reportActions.reportUrl;
+                      link.download = "";
+                      link.click();
+                    }}
+                    disabled={!reportActions.reportUrl || reportLoading}
+                  >
+                    Download PDF
+                  </button>
+                </div>
+                {reportLoading ? <p className="muted">Checking report availability...</p> : null}
+                {reportError ? <p className="dashboard-error">{reportError}</p> : null}
               </div>
-              {reportLoading ? <p className="muted">Checking report availability...</p> : null}
-              {reportError ? <p className="dashboard-error">{reportError}</p> : null}
-            </div>
+            </section>
           ) : null}
 
           {tab === "share" ? (
-            <div className="dashboard-share-panel">
-              <div className="dashboard-share-header">
-                <h3>Share Links</h3>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => void handleCreateShareLink()}
-                  disabled={shareCreating}
-                >
-                  {shareCreating ? "Creating..." : "Create Link"}
-                </button>
+            <section className="job-tab-panel">
+              <div className="job-tab-header">
+                <h4>Share</h4>
+                <p className="muted">Create, copy, and manage external share access.</p>
               </div>
-              {shareLoading ? <p className="muted">Loading share links...</p> : null}
-              {shareError ? <p className="dashboard-error">{shareError}</p> : null}
-              <div className="dashboard-share-list">
-                {shareLinks.map((link) => (
-                  <div key={link.token} className="dashboard-share-item">
-                    <div className="dashboard-share-row">
-                      <strong>{link.title}</strong>
-                      <div className="dashboard-share-actions">
-                        <a href={link.url} target="_blank" rel="noreferrer" className="muted">
-                          Open
-                        </a>
-                        <button
-                          className="btn btn-secondary dashboard-inline-btn"
-                          onClick={() => void handleCopyShareLink(link.url, link.token)}
-                        >
-                          {copiedToken === link.token ? "Copied" : "Copy"}
-                        </button>
-                      </div>
-                    </div>
-                    <p className="muted">Expires: {new Date(link.expiresAt).toLocaleString()}</p>
-                    <div className="dashboard-share-row">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={!link.isRevoked}
-                          onChange={(event) =>
-                            void handleSaveShareLink(link.token, {
-                              isRevoked: !event.target.checked,
-                            })
-                          }
-                          disabled={shareSavingToken === link.token}
-                        />{" "}
-                        Active
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={link.allowDownload}
-                          onChange={(event) =>
-                            void handleSaveShareLink(link.token, {
-                              allowDownload: event.target.checked,
-                            })
-                          }
-                          disabled={shareSavingToken === link.token}
-                        />{" "}
-                        Allow downloads
-                      </label>
-                    </div>
-                    <div className="dashboard-share-row">
-                      <input
-                        className="input"
-                        type="datetime-local"
-                        value={toLocalDateTimeInput(link.expiresAt)}
-                        onChange={(event) => {
-                          const nextIso = toIsoOrNull(event.target.value);
-                          if (!nextIso) return;
-                          void handleSaveShareLink(link.token, { expiresAt: nextIso });
-                        }}
-                        disabled={shareSavingToken === link.token}
-                      />
-                    </div>
-                  </div>
-                ))}
-                {!shareLinks.length && !shareLoading ? (
-                  <p className="muted">No share links for this job.</p>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {tab === "documents" ? (
-            <div className="dashboard-panel">
-              <h4>Documents</h4>
-              {documentsSupported === null ? <p className="muted">Checking support...</p> : null}
-              {documentsSupported === false ? (
-                <p className="muted">Documents will be available soon</p>
-              ) : null}
-              {documentsSupported ? (
-                <>
-                  <div className="dashboard-share-row">
-                    <input
-                      type="file"
-                      onChange={(event) =>
-                        void handleUploadDocument(event.target.files?.[0] ?? null)
-                      }
-                      disabled={uploadingDocument}
-                    />
-                    {uploadingDocument ? <p className="muted">Uploading...</p> : null}
-                  </div>
-                  {documentsLoading ? <p className="muted">Loading documents...</p> : null}
-                  {documentsError ? <p className="dashboard-error">{documentsError}</p> : null}
-                  <div className="office-list">
-                    {documents.map((doc) => (
-                      <div key={doc.id} className="office-list-row">
-                        <strong>{doc.file_name}</strong>
-                        <small>
-                          {doc.created_at ? new Date(doc.created_at).toLocaleString() : "Unknown date"}
-                        </small>
+              <div className="dashboard-share-panel">
+                <div className="dashboard-share-header">
+                  <h3>Share Links</h3>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => void handleCreateShareLink()}
+                    disabled={shareCreating}
+                  >
+                    {shareCreating ? "Creating..." : "Create Link"}
+                  </button>
+                </div>
+                {shareLoading ? <p className="muted">Loading share links...</p> : null}
+                {shareError ? <p className="dashboard-error">{shareError}</p> : null}
+                <div className="dashboard-share-list">
+                  {shareLinks.map((link) => (
+                    <div key={link.token} className="dashboard-share-item">
+                      <div className="dashboard-share-row">
+                        <strong>{link.title}</strong>
                         <div className="dashboard-share-actions">
-                          {doc.signed_url ? (
-                            <a href={doc.signed_url} className="muted" target="_blank" rel="noreferrer">
-                              Download
-                            </a>
-                          ) : null}
+                          <a href={link.url} target="_blank" rel="noreferrer" className="muted">
+                            Open
+                          </a>
                           <button
                             className="btn btn-secondary dashboard-inline-btn"
-                            onClick={() => void handleDeleteDocument(doc)}
-                            disabled={deletingDocumentId === doc.id}
+                            onClick={() => void handleCopyShareLink(link.url, link.token)}
                           >
-                            {deletingDocumentId === doc.id ? "Deleting..." : "Delete"}
+                            {copiedToken === link.token ? "Copied" : "Copy"}
                           </button>
                         </div>
                       </div>
-                    ))}
-                    {!documents.length && !documentsLoading ? (
-                      <p className="muted">No documents uploaded.</p>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
-            </div>
+                      <p className="muted">Expires: {new Date(link.expiresAt).toLocaleString()}</p>
+                      <div className="dashboard-share-row">
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={!link.isRevoked}
+                            onChange={(event) =>
+                              void handleSaveShareLink(link.token, {
+                                isRevoked: !event.target.checked,
+                              })
+                            }
+                            disabled={shareSavingToken === link.token}
+                          />{" "}
+                          Active
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={link.allowDownload}
+                            onChange={(event) =>
+                              void handleSaveShareLink(link.token, {
+                                allowDownload: event.target.checked,
+                              })
+                            }
+                            disabled={shareSavingToken === link.token}
+                          />{" "}
+                          Allow downloads
+                        </label>
+                      </div>
+                      <div className="dashboard-share-row">
+                        <input
+                          className="input"
+                          type="datetime-local"
+                          value={toLocalDateTimeInput(link.expiresAt)}
+                          onChange={(event) => {
+                            const nextIso = toIsoOrNull(event.target.value);
+                            if (!nextIso) return;
+                            void handleSaveShareLink(link.token, { expiresAt: nextIso });
+                          }}
+                          disabled={shareSavingToken === link.token}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {!shareLinks.length && !shareLoading ? (
+                    <p className="muted">No share links for this job.</p>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {tab === "documents" ? (
+            <section className="job-tab-panel">
+              <div className="job-tab-header">
+                <h4>Documents</h4>
+                <p className="muted">Office file storage for this job record.</p>
+              </div>
+              <div className="dashboard-panel">
+                {documentsSupported === null ? <p className="muted">Checking support...</p> : null}
+                {documentsSupported === false ? (
+                  <p className="muted">Documents will be available soon.</p>
+                ) : null}
+                {documentsSupported ? (
+                  <>
+                    <div className="dashboard-share-row">
+                      <input
+                        type="file"
+                        onChange={(event) =>
+                          void handleUploadDocument(event.target.files?.[0] ?? null)
+                        }
+                        disabled={uploadingDocument}
+                      />
+                      {uploadingDocument ? <p className="muted">Uploading...</p> : null}
+                    </div>
+                    {documentsLoading ? <p className="muted">Loading documents...</p> : null}
+                    {documentsError ? <p className="dashboard-error">{documentsError}</p> : null}
+                    <div className="office-list">
+                      {documents.map((doc) => (
+                        <div key={doc.id} className="office-list-row">
+                          <strong>{doc.file_name}</strong>
+                          <small>
+                            {doc.created_at ? new Date(doc.created_at).toLocaleString() : "Unknown date"}
+                          </small>
+                          <div className="dashboard-share-actions">
+                            {doc.signed_url ? (
+                              <a href={doc.signed_url} className="muted" target="_blank" rel="noreferrer">
+                                Download
+                              </a>
+                            ) : null}
+                            <button
+                              className="btn btn-secondary dashboard-inline-btn"
+                              onClick={() => void handleDeleteDocument(doc)}
+                              disabled={deletingDocumentId === doc.id}
+                            >
+                              {deletingDocumentId === doc.id ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {!documents.length && !documentsLoading ? (
+                        <p className="muted">No documents uploaded.</p>
+                      ) : null}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </section>
           ) : null}
 
           {tab === "photos" ? (
-            <>
+            <section className="job-tab-panel">
               <div className="job-photos-subhead">
                 <h4>Photo Gallery</h4>
                 <p className="muted">Filter, relabel, and manage captured photos.</p>
@@ -896,7 +945,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                   <p className="muted">No photos match current filters.</p>
                 ) : null}
               </div>
-            </>
+            </section>
           ) : null}
         </>
       ) : (

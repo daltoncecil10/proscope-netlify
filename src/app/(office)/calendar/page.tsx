@@ -66,8 +66,7 @@ export default function CalendarPage() {
   return (
     <section className="office-page">
       <div className="office-page-header">
-        <h3>Calendar</h3>
-        <p className="muted">Scheduled jobs by date.</p>
+        <p className="muted">Plan and review scheduled jobs.</p>
       </div>
 
       <div className="office-topbar-actions">
@@ -89,23 +88,36 @@ export default function CalendarPage() {
       {error ? <p className="dashboard-error">{error}</p> : null}
 
       {!loading ? (
-        <div className="office-section-grid">
-          {grouped.map(([dateKey, rows]) => (
-            <article key={dateKey} className="card">
-              <h4>{new Date(`${dateKey}T00:00:00`).toLocaleDateString()}</h4>
-              <div className="office-list">
-                {rows.map((job) => (
-                  <Link key={job.id} href={`/jobs/${job.id}`} className="office-list-row">
-                    <strong>{job.title}</strong>
-                    <small>{job.address}</small>
-                    <small>{job.scheduled_at ? new Date(job.scheduled_at).toLocaleString() : "—"}</small>
-                  </Link>
-                ))}
-              </div>
-            </article>
-          ))}
-          {!grouped.length ? <p className="muted">No scheduled jobs in this {mode} view.</p> : null}
-        </div>
+        grouped.length ? (
+          <div className="office-section-grid">
+            {grouped.map(([dateKey, rows]) => (
+              <article key={dateKey} className="card">
+                <h4>{new Date(`${dateKey}T00:00:00`).toLocaleDateString()}</h4>
+                <div className="office-list">
+                  {rows.map((job) => (
+                    <Link key={job.id} href={`/jobs/${job.id}`} className="office-list-row">
+                      <strong>{job.title}</strong>
+                      <small>{job.address}</small>
+                      <small>{job.scheduled_at ? new Date(job.scheduled_at).toLocaleString() : "—"}</small>
+                    </Link>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="calendar-empty-state">
+            <div className="card calendar-empty-card">
+              <p className="muted">
+                {mode === "week" ? "No jobs scheduled this week." : "No jobs scheduled this month."}
+              </p>
+              <p className="muted">Schedule a job to see it here.</p>
+              <Link href="/jobs" className="btn btn-primary">
+                View Jobs
+              </Link>
+            </div>
+          </div>
+        )
       ) : null}
     </section>
   );
