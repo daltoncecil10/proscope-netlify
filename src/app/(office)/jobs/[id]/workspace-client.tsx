@@ -77,6 +77,30 @@ function composeCategoryFromTags(tags: PhotoTags) {
     .join("/");
 }
 
+function normalizeDamageDetail(value: string) {
+  const cleaned = value
+    .trim()
+    .replace(/\s*-\s*/g, " - ")
+    .replace(/\s+/g, " ");
+  return cleaned;
+}
+
+function isValidDamageDetail(value: string) {
+  return /^[A-Za-z][A-Za-z\s/-]*\s-\s\d+(?:\.\d+)?"\s-\s\d+(?:\.\d+)?'$/.test(value);
+}
+
+function formatShortDateTime(value: string | null | undefined) {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return null;
+  return new Date(timestamp).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function JobWorkspaceClient({ jobId }: { jobId: string }) {
   const [tab, setTab] = useState<WorkspaceTab>("overview");
 
@@ -292,8 +316,14 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
   const handleSavePhoto = async (photo: DashboardPhoto) => {
     setSavingPhotoId(photo.id);
     try {
+      const nextTags = editTags[photo.id] ?? parseCategoryToTags(photo.category);
+      const normalizedDamage = normalizeDamageDetail(nextTags.component);
+      if (normalizedDamage && !isValidDamageDetail(normalizedDamage)) {
+        window.alert('Use damage format: Material - 4" - 27\'');
+        return;
+      }
       const nextCategory = composeCategoryFromTags(
-        editTags[photo.id] ?? parseCategoryToTags(photo.category)
+        { ...nextTags, component: normalizedDamage }
       );
       await updateDashboardPhoto(photo.id, {
         caption: (editCaption[photo.id] ?? "").trim() || null,
@@ -409,7 +439,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
           <h3>{selectedJob?.title ?? "Job Workspace"}</h3>
           <p className="muted">{selectedJob?.address ?? "Loading job details..."}</p>
         </div>
-        <div className="office-topbar-actions">
+        <div className="office-topbar-actions job-workspace-actions">
           <Link href="/jobs" className="btn btn-secondary">
             Back to Jobs
           </Link>
@@ -433,6 +463,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                 onClick={() => setTab(nextTab)}
                 role="tab"
                 aria-selected={tab === nextTab}
+                aria-controls={`${nextTab}-panel`}
               >
                 {TAB_LABELS[nextTab]}
               </button>
@@ -440,7 +471,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
           </div>
 
           {tab === "overview" ? (
-            <section className="job-tab-panel">
+            <section className="job-tab-panel" id="overview-panel" role="tabpanel">
               <div className="job-tab-header">
                 <h4>Overview</h4>
                 <p className="muted">Key job metadata and timeline at a glance.</p>
@@ -473,17 +504,13 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                     <div className="job-meta-row">
                       <dt>Scheduled</dt>
                       <dd>
-                        {selectedJob.scheduled_at
-                          ? new Date(selectedJob.scheduled_at).toLocaleString()
-                          : "Not scheduled"}
+                        {formatShortDateTime(selectedJob.scheduled_at) ?? "Not scheduled"}
                       </dd>
                     </div>
                     <div className="job-meta-row">
                       <dt>Updated</dt>
                       <dd>
-                        {selectedJob.updated_at
-                          ? new Date(selectedJob.updated_at).toLocaleString()
-                          : "Unknown"}
+                        {formatShortDateTime(selectedJob.updated_at) ?? "Unknown"}
                       </dd>
                     </div>
                     <div className="job-meta-row">
@@ -501,7 +528,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
           ) : null}
 
           {tab === "crm" ? (
-            <section className="job-tab-panel">
+            <section className="job-tab-panel" id="crm-panel" role="tabpanel">
               <div className="job-tab-header">
                 <h4>CRM</h4>
                 <p className="muted">Lightweight, job-focused updates for office follow-up.</p>
@@ -569,7 +596,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
           ) : null}
 
           {tab === "reports" ? (
-            <section className="job-tab-panel">
+            <section className="job-tab-panel" id="reports-panel" role="tabpanel">
               <div className="job-tab-header">
                 <h4>Reports</h4>
                 <p className="muted">View and download generated report output.</p>
@@ -612,7 +639,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
           ) : null}
 
           {tab === "share" ? (
-            <section className="job-tab-panel">
+            <section className="job-tab-panel" id="share-panel" role="tabpanel">
               <div className="job-tab-header">
                 <h4>Share</h4>
                 <p className="muted">Create, copy, and manage external share access.</p>
@@ -647,7 +674,9 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                           </button>
                         </div>
                       </div>
-                      <p className="muted">Expires: {new Date(link.expiresAt).toLocaleString()}</p>
+                      <p className="muted">
+                        Expires: {formatShortDateTime(link.expiresAt) ?? "Unknown"}
+                      </p>
                       <div className="dashboard-share-row">
                         <label>
                           <input
@@ -700,7 +729,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
           ) : null}
 
           {tab === "documents" ? (
-            <section className="job-tab-panel">
+            <section className="job-tab-panel" id="documents-panel" role="tabpanel">
               <div className="job-tab-header">
                 <h4>Documents</h4>
                 <p className="muted">Office file storage for this job record.</p>
@@ -708,7 +737,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
               <div className="dashboard-panel">
                 {documentsSupported === null ? <p className="muted">Checking support...</p> : null}
                 {documentsSupported === false ? (
-                  <p className="muted">Documents will be available soon.</p>
+                  <p className="muted">Document storage is not enabled for this workspace yet.</p>
                 ) : null}
                 {documentsSupported ? (
                   <>
@@ -729,7 +758,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                         <div key={doc.id} className="office-list-row">
                           <strong>{doc.file_name}</strong>
                           <small>
-                            {doc.created_at ? new Date(doc.created_at).toLocaleString() : "Unknown date"}
+                            {formatShortDateTime(doc.created_at) ?? "Unknown date"}
                           </small>
                           <div className="dashboard-share-actions">
                             {doc.signed_url ? (
@@ -758,7 +787,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
           ) : null}
 
           {tab === "photos" ? (
-            <section className="job-tab-panel">
+            <section className="job-tab-panel" id="photos-panel" role="tabpanel">
               <div className="job-photos-subhead">
                 <h4>Photo Gallery</h4>
                 <p className="muted">Filter, relabel, and manage captured photos.</p>
@@ -838,13 +867,15 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                     <div className="dashboard-photo-meta">
                       <p className="job-photo-stamp muted">
                         Captured:{" "}
-                        {photo.created_at
-                          ? new Date(photo.created_at).toLocaleString()
-                          : "Unknown"}
+                        {formatShortDateTime(photo.created_at) ?? "Unknown"}
                       </p>
+                      <label className="job-photo-field-label" htmlFor={`photo-description-${photo.id}`}>
+                        Description
+                      </label>
                       <input
+                        id={`photo-description-${photo.id}`}
                         className="input"
-                        placeholder="Caption"
+                        placeholder="Description"
                         value={editCaption[photo.id] ?? ""}
                         onChange={(event) =>
                           setEditCaption((prev) => ({ ...prev, [photo.id]: event.target.value }))
@@ -895,7 +926,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                         />
                         <input
                           className="input"
-                          placeholder="Component"
+                          placeholder={`Damage detail (Aluminum - 4" - 27')`}
                           value={editTags[photo.id]?.component ?? ""}
                           onChange={(event) =>
                             setEditTags((prev) => ({
@@ -908,18 +939,26 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                           }
                         />
                       </div>
+                      <p className="job-photo-format-note muted">
+                        If damaged, use: Material - 4" - 27'
+                      </p>
                       <div className="job-photo-tag-summary">
                         <span className="muted">
-                          {editTags[photo.id]?.structure || "No structure"}
+                          Area:{" "}
+                          {[
+                            editTags[photo.id]?.structure,
+                            editTags[photo.id]?.section,
+                            editTags[photo.id]?.elevation,
+                          ]
+                            .filter((value) => Boolean(value && value.trim()))
+                            .join(" / ") || "Unassigned"}
                         </span>
                         <span className="muted">
-                          {editTags[photo.id]?.section || "No section"}
-                        </span>
-                        <span className="muted">
-                          {editTags[photo.id]?.elevation || "No elevation/slope"}
-                        </span>
-                        <span className="muted">
-                          {editTags[photo.id]?.component || "No component"}
+                          {(() => {
+                            const damage = normalizeDamageDetail(editTags[photo.id]?.component ?? "");
+                            if (!damage) return "Damage: No";
+                            return `Damage: Yes (${damage})`;
+                          })()}
                         </span>
                       </div>
                       <div className="dashboard-share-actions">
