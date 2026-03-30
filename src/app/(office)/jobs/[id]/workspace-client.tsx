@@ -110,6 +110,14 @@ function hasAnyNumber(value: string) {
   return /\d/.test(value);
 }
 
+function extractDamageCounts(value: string) {
+  const matches = [...value.matchAll(/\b(wind|hail|tree|other)\s*[-:]?\s*(\d+)\b/gi)];
+  if (!matches.length) return "";
+  return matches
+    .map((match) => `${toTitleWord(match[1].toLowerCase())}-${match[2]}`)
+    .join(" ");
+}
+
 function valuePathFromTags(tags: PhotoTags) {
   return [tags.structure, tags.section, tags.elevation]
     .map((value) => value.trim())
@@ -158,27 +166,18 @@ function resolveDamageBucket(photo: DashboardPhoto, captionValue?: string, tags?
   return detail ? "damaged" : "not_damaged";
 }
 
-function damageDetailDisplay(photo: DashboardPhoto, captionValue?: string, tags?: PhotoTags) {
+function damageDisplay(photo: DashboardPhoto, captionValue?: string, tags?: PhotoTags) {
   const condition = resolveDamageBucket(photo, captionValue, tags);
   if (condition !== "damaged") return "N/A";
 
   const caption = (captionValue ?? photo.caption ?? "").toLowerCase();
   const detailRaw = normalizeDamageDetail(tags?.component ?? "");
-  const detail = toDisplaySegment(detailRaw);
-  const mentionsCountType =
-    caption.includes("wind") ||
-    caption.includes("tree") ||
-    caption.includes("hail") ||
-    caption.includes("other");
-  const detailLooksGeneric =
-    detailRaw === "damage-count" ||
-    detailRaw === "damage counts" ||
-    detailRaw === "damage-counts" ||
-    detailRaw === "damages";
-
-  if (mentionsCountType && !hasAnyNumber(`${caption} ${detailRaw}`)) return "N/A";
-  if (!detailRaw || detailLooksGeneric) return "N/A";
-  return detail;
+  const combined = `${caption} ${detailRaw}`.toLowerCase();
+  const hasDamageType = /\b(wind|hail|tree|other)\b/.test(combined);
+  const countsText = extractDamageCounts(combined);
+  if (countsText) return countsText;
+  if (hasDamageType) return "Yes";
+  return "N/A";
 }
 
 function matchesReportSection(tags: PhotoTags, filter: ReportSectionFilter) {
@@ -993,8 +992,8 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                         }
                       />
                       <p className="job-photo-format-note muted">
-                        Damage Detail:{" "}
-                        {damageDetailDisplay(
+                        Damage:{" "}
+                        {damageDisplay(
                           photo,
                           editCaption[photo.id],
                           editTags[photo.id] ?? parseCategoryToTags(photo.category)
