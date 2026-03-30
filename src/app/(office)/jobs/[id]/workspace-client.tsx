@@ -42,6 +42,13 @@ type PhotoTags = {
   elevation: string;
   component: string;
 };
+type DamageFilter = "both" | "damaged" | "not_damaged";
+type ReportSectionFilter =
+  | "all"
+  | "exterior"
+  | "roof_details"
+  | "roof_components"
+  | "roof_slopes";
 
 function toLocalDateTimeInput(value: string | null | undefined) {
   if (!value) return "";
@@ -85,13 +92,30 @@ function normalizeDamageDetail(value: string) {
   return cleaned;
 }
 
-function isValidDamageDetail(value: string) {
-  return /^[A-Za-z][A-Za-z\s/-]*\s-\s\d+(?:\.\d+)?"\s-\s\d+(?:\.\d+)?'$/.test(value);
+function toTitleWord(value: string) {
+  if (!value) return "";
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
+function toDisplaySegment(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => toTitleWord(part))
+    .join(" ");
 }
 
 function valuePathFromTags(tags: PhotoTags) {
   return [tags.structure, tags.section, tags.elevation]
     .map((value) => value.trim())
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function valuePathDisplayFromTags(tags: PhotoTags) {
+  return [tags.structure, tags.section, tags.elevation]
+    .map((value) => toDisplaySegment(value))
     .filter(Boolean)
     .join(" / ");
 }
@@ -121,6 +145,25 @@ function formatShortDateTime(value: string | null | undefined) {
   });
 }
 
+function resolveDamageBucket(photo: DashboardPhoto, captionValue?: string, tags?: PhotoTags): DamageFilter {
+  const caption = (captionValue ?? photo.caption ?? "").toLowerCase();
+  if (caption.includes("mechanical")) return "not_damaged";
+  if (caption.includes("no damage")) return "not_damaged";
+  if (caption.includes("damage")) return "damaged";
+  const detail = normalizeDamageDetail(tags?.component ?? "");
+  return detail ? "damaged" : "not_damaged";
+}
+
+function matchesReportSection(tags: PhotoTags, filter: ReportSectionFilter) {
+  if (filter === "all") return true;
+  const text = [tags.structure, tags.section, tags.elevation].join(" ").toLowerCase();
+  if (filter === "exterior") return text.includes("exterior");
+  if (filter === "roof_details") return text.includes("roof") && text.includes("detail");
+  if (filter === "roof_components") return text.includes("roof") && text.includes("component");
+  if (filter === "roof_slopes") return text.includes("roof") && text.includes("slope");
+  return true;
+}
+
 export function JobWorkspaceClient({ jobId }: { jobId: string }) {
   const [tab, setTab] = useState<WorkspaceTab>("overview");
 
@@ -140,6 +183,8 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
     elevation: "",
     component: "",
   });
+  const [damageFilter, setDamageFilter] = useState<DamageFilter>("both");
+  const [reportSectionFilter, setReportSectionFilter] = useState<ReportSectionFilter>("all");
   const [editCaption, setEditCaption] = useState<Record<string, string>>({});
   const [editTags, setEditTags] = useState<Record<string, PhotoTags>>({});
 
@@ -181,13 +226,22 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
     return photos.filter((photo) => {
       const tags = editTags[photo.id] ?? parseCategoryToTags(photo.category);
       return (
+        matchesReportSection(tags, reportSectionFilter) &&
         (!filters.structure || tags.structure === filters.structure) &&
         (!filters.section || tags.section === filters.section) &&
-        (!filters.elevation || tags.elevation === filters.elevation) &&
-        (!filters.component || tags.component === filters.component)
+        (damageFilter === "both" ||
+          resolveDamageBucket(photo, editCaption[photo.id], tags) === damageFilter)
       );
     });
-  }, [editTags, filters, photos]);
+  }, [
+    damageFilter,
+    editCaption,
+    editTags,
+    filters.section,
+    filters.structure,
+    photos,
+    reportSectionFilter,
+  ]);
 
   const filterOptions = useMemo(() => {
     const build = (extractor: (tags: PhotoTags) => string) => {
@@ -338,10 +392,6 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
     try {
       const nextTags = editTags[photo.id] ?? parseCategoryToTags(photo.category);
       const normalizedDamage = normalizeDamageDetail(nextTags.component);
-      if (normalizedDamage && !isValidDamageDetail(normalizedDamage)) {
-        window.alert('Use damage format: Material - 4" - 27\'');
-        return;
-      }
       const nextCategory = composeCategoryFromTags(
         { ...nextTags, component: normalizedDamage }
       );
@@ -815,6 +865,19 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
               <div className="dashboard-filter-row">
                 <select
                   className="input"
+                  value={reportSectionFilter}
+                  onChange={(event) =>
+                    setReportSectionFilter(event.target.value as ReportSectionFilter)
+                  }
+                >
+                  <option value="all">All Report Sections</option>
+                  <option value="exterior">Exterior</option>
+                  <option value="roof_details">Roof Details</option>
+                  <option value="roof_components">Roof Components</option>
+                  <option value="roof_slopes">Roof Slopes</option>
+                </select>
+                <select
+                  className="input"
                   value={filters.structure}
                   onChange={(event) =>
                     setFilters((prev) => ({ ...prev, structure: event.target.value }))
@@ -841,31 +904,12 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                 </select>
                 <select
                   className="input"
-                  value={filters.elevation}
-                  onChange={(event) =>
-                    setFilters((prev) => ({ ...prev, elevation: event.target.value }))
-                  }
+                  value={damageFilter}
+                  onChange={(event) => setDamageFilter(event.target.value as DamageFilter)}
                 >
-                  <option value="">All elevations/slopes</option>
-                  {filterOptions.elevation.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="input"
-                  value={filters.component}
-                  onChange={(event) =>
-                    setFilters((prev) => ({ ...prev, component: event.target.value }))
-                  }
-                >
-                  <option value="">All components</option>
-                  {filterOptions.component.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
+                  <option value="both">All damage</option>
+                  <option value="damaged">Damaged</option>
+                  <option value="not_damaged">Not Damaged</option>
                 </select>
               </div>
 
@@ -908,7 +952,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                         id={`photo-value-path-${photo.id}`}
                         className="input job-photo-input"
                         placeholder="Exterior / Front / Downspout"
-                        value={valuePathFromTags(
+                        value={valuePathDisplayFromTags(
                           editTags[photo.id] ?? parseCategoryToTags(photo.category)
                         )}
                         onChange={(event) =>
@@ -940,19 +984,24 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                         }
                       />
                       <p className="job-photo-format-note muted">
-                        If damaged, use: Material - 4" - 27'
+                        Damage detail:{" "}
+                        {(() => {
+                          const condition = resolveDamageBucket(
+                            photo,
+                            editCaption[photo.id],
+                            editTags[photo.id] ?? parseCategoryToTags(photo.category)
+                          );
+                          const detail = normalizeDamageDetail(editTags[photo.id]?.component ?? "");
+                          if (condition === "not_damaged") return "N/A";
+                          return detail || "Damaged";
+                        })()}
                       </p>
                       <div className="job-photo-tag-summary">
                         <span className="muted">
-                          {valuePathFromTags(editTags[photo.id] ?? parseCategoryToTags(photo.category)) ||
+                          {valuePathDisplayFromTags(
+                            editTags[photo.id] ?? parseCategoryToTags(photo.category)
+                          ) ||
                             "Unassigned"}
-                        </span>
-                        <span className="muted">
-                          {(() => {
-                            const damage = normalizeDamageDetail(editTags[photo.id]?.component ?? "");
-                            if (!damage) return "Damage: No";
-                            return `Damage: Yes (${damage})`;
-                          })()}
                         </span>
                       </div>
                       <div className="dashboard-share-actions">
