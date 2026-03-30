@@ -106,6 +106,10 @@ function toDisplaySegment(value: string) {
     .join(" ");
 }
 
+function hasAnyNumber(value: string) {
+  return /\d/.test(value);
+}
+
 function valuePathFromTags(tags: PhotoTags) {
   return [tags.structure, tags.section, tags.elevation]
     .map((value) => value.trim())
@@ -152,6 +156,29 @@ function resolveDamageBucket(photo: DashboardPhoto, captionValue?: string, tags?
   if (caption.includes("damage")) return "damaged";
   const detail = normalizeDamageDetail(tags?.component ?? "");
   return detail ? "damaged" : "not_damaged";
+}
+
+function damageDetailDisplay(photo: DashboardPhoto, captionValue?: string, tags?: PhotoTags) {
+  const condition = resolveDamageBucket(photo, captionValue, tags);
+  if (condition !== "damaged") return "N/A";
+
+  const caption = (captionValue ?? photo.caption ?? "").toLowerCase();
+  const detailRaw = normalizeDamageDetail(tags?.component ?? "");
+  const detail = toDisplaySegment(detailRaw);
+  const mentionsCountType =
+    caption.includes("wind") ||
+    caption.includes("tree") ||
+    caption.includes("hail") ||
+    caption.includes("other");
+  const detailLooksGeneric =
+    detailRaw === "damage-count" ||
+    detailRaw === "damage counts" ||
+    detailRaw === "damage-counts" ||
+    detailRaw === "damages";
+
+  if (mentionsCountType && !hasAnyNumber(`${caption} ${detailRaw}`)) return "N/A";
+  if (!detailRaw || detailLooksGeneric) return "N/A";
+  return detail;
 }
 
 function matchesReportSection(tags: PhotoTags, filter: ReportSectionFilter) {
@@ -883,10 +910,10 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                     setFilters((prev) => ({ ...prev, structure: event.target.value }))
                   }
                 >
-                  <option value="">All structures</option>
+                  <option value="">All Structures</option>
                   {filterOptions.structure.map((option) => (
                     <option key={option} value={option}>
-                      {option}
+                      {toDisplaySegment(option)}
                     </option>
                   ))}
                 </select>
@@ -895,10 +922,10 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                   value={filters.section}
                   onChange={(event) => setFilters((prev) => ({ ...prev, section: event.target.value }))}
                 >
-                  <option value="">All sections</option>
+                  <option value="">All Sections</option>
                   {filterOptions.section.map((option) => (
                     <option key={option} value={option}>
-                      {option}
+                      {toDisplaySegment(option)}
                     </option>
                   ))}
                 </select>
@@ -907,7 +934,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                   value={damageFilter}
                   onChange={(event) => setDamageFilter(event.target.value as DamageFilter)}
                 >
-                  <option value="both">All damage</option>
+                  <option value="both">All Damage</option>
                   <option value="damaged">Damaged</option>
                   <option value="not_damaged">Not Damaged</option>
                 </select>
@@ -946,7 +973,7 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                         }
                       />
                       <label className="job-photo-field-label" htmlFor={`photo-value-path-${photo.id}`}>
-                        Value Path
+                        Location
                       </label>
                       <input
                         id={`photo-value-path-${photo.id}`}
@@ -965,36 +992,13 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                           }))
                         }
                       />
-                      <label className="job-photo-field-label" htmlFor={`photo-damage-detail-${photo.id}`}>
-                        Damage Detail (if damaged)
-                      </label>
-                      <input
-                        id={`photo-damage-detail-${photo.id}`}
-                        className="input job-photo-input"
-                        placeholder={`Aluminum - 4" - 27'`}
-                        value={editTags[photo.id]?.component ?? ""}
-                        onChange={(event) =>
-                          setEditTags((prev) => ({
-                            ...prev,
-                            [photo.id]: {
-                              ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
-                              component: event.target.value,
-                            },
-                          }))
-                        }
-                      />
                       <p className="job-photo-format-note muted">
-                        Damage detail:{" "}
-                        {(() => {
-                          const condition = resolveDamageBucket(
-                            photo,
-                            editCaption[photo.id],
-                            editTags[photo.id] ?? parseCategoryToTags(photo.category)
-                          );
-                          const detail = normalizeDamageDetail(editTags[photo.id]?.component ?? "");
-                          if (condition === "not_damaged") return "N/A";
-                          return detail || "Damaged";
-                        })()}
+                        Damage Detail:{" "}
+                        {damageDetailDisplay(
+                          photo,
+                          editCaption[photo.id],
+                          editTags[photo.id] ?? parseCategoryToTags(photo.category)
+                        )}
                       </p>
                       <div className="job-photo-tag-summary">
                         <span className="muted">
