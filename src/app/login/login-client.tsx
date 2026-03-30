@@ -8,8 +8,17 @@ export function LoginClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const remembered = window.localStorage.getItem("proscope-remember-login-email");
+    if (remembered) {
+      setEmail(remembered);
+      setRememberMe(true);
+    }
+  }, []);
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
@@ -29,6 +38,11 @@ export function LoginClient() {
         password,
       });
       if (authError) throw authError;
+      if (rememberMe) {
+        window.localStorage.setItem("proscope-remember-login-email", email.trim().toLowerCase());
+      } else {
+        window.localStorage.removeItem("proscope-remember-login-email");
+      }
       router.replace("/dashboard");
     } catch (err) {
       setError((err as Error)?.message ?? "Unable to sign in.");
@@ -63,6 +77,14 @@ export function LoginClient() {
               onChange={(event) => setPassword(event.target.value)}
               required
             />
+            <label className="office-inline-checkbox">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+              />
+              <span className="muted">Remember me on this device</span>
+            </label>
             <button className="btn btn-primary" type="submit" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
             </button>

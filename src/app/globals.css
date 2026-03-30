@@ -1334,6 +1334,12 @@ a {
   color: var(--muted);
 }
 
+.job-photo-input {
+  min-width: 0;
+  padding: 10px;
+  font-size: 13px;
+}
+
 .job-photo-format-note {
   margin: 0;
   font-size: 11px;

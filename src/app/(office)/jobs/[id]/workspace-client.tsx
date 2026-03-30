@@ -89,6 +89,26 @@ function isValidDamageDetail(value: string) {
   return /^[A-Za-z][A-Za-z\s/-]*\s-\s\d+(?:\.\d+)?"\s-\s\d+(?:\.\d+)?'$/.test(value);
 }
 
+function valuePathFromTags(tags: PhotoTags) {
+  return [tags.structure, tags.section, tags.elevation]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function tagsWithValuePath(currentTags: PhotoTags, valuePath: string): PhotoTags {
+  const parts = valuePath
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return {
+    ...currentTags,
+    structure: parts[0] ?? "",
+    section: parts[1] ?? "",
+    elevation: parts[2] ?? "",
+  };
+}
+
 function formatShortDateTime(value: string | null | undefined) {
   if (!value) return null;
   const timestamp = new Date(value).getTime();
@@ -874,84 +894,58 @@ export function JobWorkspaceClient({ jobId }: { jobId: string }) {
                       </label>
                       <input
                         id={`photo-description-${photo.id}`}
-                        className="input"
+                        className="input job-photo-input"
                         placeholder="Description"
                         value={editCaption[photo.id] ?? ""}
                         onChange={(event) =>
                           setEditCaption((prev) => ({ ...prev, [photo.id]: event.target.value }))
                         }
                       />
-                      <div className="dashboard-filter-row">
-                        <input
-                          className="input"
-                          placeholder="Structure"
-                          value={editTags[photo.id]?.structure ?? ""}
-                          onChange={(event) =>
-                            setEditTags((prev) => ({
-                              ...prev,
-                              [photo.id]: {
-                                ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
-                                structure: event.target.value,
-                              },
-                            }))
-                          }
-                        />
-                        <input
-                          className="input"
-                          placeholder="Section"
-                          value={editTags[photo.id]?.section ?? ""}
-                          onChange={(event) =>
-                            setEditTags((prev) => ({
-                              ...prev,
-                              [photo.id]: {
-                                ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
-                                section: event.target.value,
-                              },
-                            }))
-                          }
-                        />
-                        <input
-                          className="input"
-                          placeholder="Elevation/Slope"
-                          value={editTags[photo.id]?.elevation ?? ""}
-                          onChange={(event) =>
-                            setEditTags((prev) => ({
-                              ...prev,
-                              [photo.id]: {
-                                ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
-                                elevation: event.target.value,
-                              },
-                            }))
-                          }
-                        />
-                        <input
-                          className="input"
-                          placeholder={`Damage detail (Aluminum - 4" - 27')`}
-                          value={editTags[photo.id]?.component ?? ""}
-                          onChange={(event) =>
-                            setEditTags((prev) => ({
-                              ...prev,
-                              [photo.id]: {
-                                ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
-                                component: event.target.value,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
+                      <label className="job-photo-field-label" htmlFor={`photo-value-path-${photo.id}`}>
+                        Value Path
+                      </label>
+                      <input
+                        id={`photo-value-path-${photo.id}`}
+                        className="input job-photo-input"
+                        placeholder="Exterior / Front / Downspout"
+                        value={valuePathFromTags(
+                          editTags[photo.id] ?? parseCategoryToTags(photo.category)
+                        )}
+                        onChange={(event) =>
+                          setEditTags((prev) => ({
+                            ...prev,
+                            [photo.id]: tagsWithValuePath(
+                              prev[photo.id] ?? parseCategoryToTags(photo.category),
+                              event.target.value
+                            ),
+                          }))
+                        }
+                      />
+                      <label className="job-photo-field-label" htmlFor={`photo-damage-detail-${photo.id}`}>
+                        Damage Detail (if damaged)
+                      </label>
+                      <input
+                        id={`photo-damage-detail-${photo.id}`}
+                        className="input job-photo-input"
+                        placeholder={`Aluminum - 4" - 27'`}
+                        value={editTags[photo.id]?.component ?? ""}
+                        onChange={(event) =>
+                          setEditTags((prev) => ({
+                            ...prev,
+                            [photo.id]: {
+                              ...(prev[photo.id] ?? parseCategoryToTags(photo.category)),
+                              component: event.target.value,
+                            },
+                          }))
+                        }
+                      />
                       <p className="job-photo-format-note muted">
                         If damaged, use: Material - 4" - 27'
                       </p>
                       <div className="job-photo-tag-summary">
                         <span className="muted">
-                          Area:{" "}
-                          {[
-                            editTags[photo.id]?.structure,
-                            editTags[photo.id]?.section,
-                            editTags[photo.id]?.elevation,
-                          ]
-                            .filter((value) => Boolean(value && value.trim()))
-                            .join(" / ") || "Unassigned"}
+                          {valuePathFromTags(editTags[photo.id] ?? parseCategoryToTags(photo.category)) ||
+                            "Unassigned"}
                         </span>
                         <span className="muted">
                           {(() => {
