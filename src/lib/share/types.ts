@@ -14,6 +14,8 @@ export type SharePackage = {
   title: string;
   address: string;
   inspectorName: string;
+  insuredName: string | null;
+  shareStructureLabel: string | null;
   createdAt: string;
   expiresAt: string;
   accessState: ShareAccessState;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import JSZip from "jszip";
 import { SharePackage } from "@/lib/share/types";
 
@@ -14,6 +15,16 @@ function triggerDownload(url: string) {
   link.target = "_blank";
   link.rel = "noopener noreferrer";
   link.click();
+}
+
+/** Streams PDF from our API (attachment or ?inline=1 for viewing). */
+function scopePdfFilePath(token: string) {
+  return `/api/share/${encodeURIComponent(token)}/scope-pdf/file`;
+}
+
+/** Same-origin PDF for iframe / “open in tab” — address bar stays on your site, not Supabase. */
+function scopePdfInlinePath(token: string) {
+  return `${scopePdfFilePath(token)}?inline=1`;
 }
 
 function sanitizeFileName(value: string) {
@@ -42,6 +53,33 @@ function triggerBlobDownload(blob: Blob, fileName: string) {
   URL.revokeObjectURL(objectUrl);
 }
 
+function parseFilenameFromContentDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const quoted = header.match(/filename="((?:\\.|[^"\\])*)"/i);
+  if (quoted?.[1]) {
+    return quoted[1].replace(/\\"/g, '"');
+  }
+  const utf8Star = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Star?.[1]) {
+    try {
+      return decodeURIComponent(utf8Star[1].trim());
+    } catch {
+      return null;
+    }
+  }
+  const plain = header.match(/filename=([^;]+)/i);
+  if (plain?.[1]) {
+    return plain[1].trim().replace(/^"+|"+$/g, "");
+  }
+  return null;
+}
+
+function displayStructureLabel(data: SharePackage): string | null {
+  if (data.shareStructureLabel?.trim()) return data.shareStructureLabel.trim();
+  const m = data.title.trim().match(/^(.+?)\s*-\s*Inspection Package\s*$/i);
+  return m?.[1]?.trim() || null;
+}
+
 export function ShareViewer({ data }: ShareViewerProps) {
   const isRevoked = data.accessState === "revoked";
   const isExpired = data.accessState === "expired";
@@ -50,6 +88,10 @@ export function ShareViewer({ data }: ShareViewerProps) {
   const hasAssets = data.assets.length > 0;
   const [packing, setPacking] = useState(false);
   const [showMediaAssets, setShowMediaAssets] = useState(false);
+  const [pdfDownloadOpen, setPdfDownloadOpen] = useState(false);
+  const [copyDone, setCopyDone] = useState(false);
+  const [pdfSaving, setPdfSaving] = useState(false);
+  const [pdfSaveError, setPdfSaveError] = useState<string | null>(null);
 
   const scopePdfAsset = useMemo(
     () =>
@@ -60,6 +102,57 @@ export function ShareViewer({ data }: ShareViewerProps) {
       ) ?? data.assets.find((asset) => asset.type === "pdf"),
     [data.assets]
   );
+  const scopePdfInlineSrc = scopePdfInlinePath(data.token);
+  const scopePdfFileHref = scopePdfFilePath(data.token);
+  const structureLine = useMemo(() => displayStructureLabel(data), [data]);
+
+  const closePdfDownloadModal = useCallback(() => {
+    setPdfDownloadOpen(false);
+    setCopyDone(false);
+    setPdfSaveError(null);
+  }, []);
+
+  const saveScopePdfFile = useCallback(async () => {
+    setPdfSaveError(null);
+    setPdfSaving(true);
+    try {
+      const res = await fetch(scopePdfFileHref, { credentials: "same-origin" });
+      if (!res.ok) {
+        throw new Error(`Could not download file (${res.status}). Try again or use “Open in new tab”.`);
+      }
+      const fromHeader = parseFilenameFromContentDisposition(
+        res.headers.get("Content-Disposition")
+      );
+      const fileName = fromHeader?.trim() || "ProScope-report.pdf";
+      const blob = await res.blob();
+      triggerBlobDownload(blob, fileName);
+      closePdfDownloadModal();
+    } catch (err) {
+      setPdfSaveError((err as Error)?.message ?? "Download failed.");
+    } finally {
+      setPdfSaving(false);
+    }
+  }, [scopePdfFileHref, closePdfDownloadModal]);
+
+  const copyFileDownloadLink = useCallback(async () => {
+    const href = typeof window !== "undefined" ? `${window.location.origin}${scopePdfFileHref}` : "";
+    if (!href) return;
+    try {
+      await navigator.clipboard.writeText(href);
+      setCopyDone(true);
+    } catch {
+      window.prompt("Copy this link:", href);
+    }
+  }, [scopePdfFileHref]);
+
+  useEffect(() => {
+    if (!pdfDownloadOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePdfDownloadModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pdfDownloadOpen, closePdfDownloadModal]);
   const mediaAssets = useMemo(
     () => data.assets.filter((asset) => asset.id !== scopePdfAsset?.id),
     [data.assets, scopePdfAsset?.id]
@@ -125,6 +218,7 @@ export function ShareViewer({ data }: ShareViewerProps) {
   }, [scopePdfAsset]);
 
   return (
+    <>
     <main className="page">
       <section className="share-wrap">
         <div className="share-header">
@@ -133,6 +227,18 @@ export function ShareViewer({ data }: ShareViewerProps) {
           <p className="muted">
             {data.address} • Inspector: {data.inspectorName}
           </p>
+          {data.insuredName ? (
+            <p className="muted">
+              <strong style={{ fontWeight: 600, color: "#e8edf7" }}>Insured:</strong>{" "}
+              {data.insuredName}
+            </p>
+          ) : null}
+          {structureLine ? (
+            <p className="muted">
+              <strong style={{ fontWeight: 600, color: "#e8edf7" }}>Structure:</strong>{" "}
+              {structureLine}
+            </p>
+          ) : null}
           <p className="muted share-dates">
             Created {new Date(data.createdAt).toLocaleString()} • Expires{" "}
             {new Date(data.expiresAt).toLocaleString()}
@@ -163,7 +269,7 @@ export function ShareViewer({ data }: ShareViewerProps) {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={() => triggerDownload(scopePdfAsset.url)}
+                onClick={() => triggerDownload(scopePdfInlineSrc)}
                 disabled={!canDownload}
               >
                 Open Full Report
@@ -171,15 +277,18 @@ export function ShareViewer({ data }: ShareViewerProps) {
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => triggerDownload(scopePdfAsset.url)}
+                onClick={() => {
+                  setPdfSaveError(null);
+                  setPdfDownloadOpen(true);
+                }}
                 disabled={!canDownload}
               >
-                Download PDF
+                Download PDF…
               </button>
             </div>
             <iframe
               className="share-report-frame"
-              src={scopePdfAsset.url}
+              src={scopePdfInlineSrc}
               title="ProScope Full Report"
             />
           </section>
@@ -305,5 +414,70 @@ export function ShareViewer({ data }: ShareViewerProps) {
         )}
       </section>
     </main>
+
+    {pdfDownloadOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="share-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pdf-download-title"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closePdfDownloadModal();
+            }}
+          >
+            <div className="share-modal-panel" onClick={(e) => e.stopPropagation()}>
+              <h3 id="pdf-download-title">Download report</h3>
+              <p className="share-modal-lede">
+                Choose how to get the PDF on this computer. The browser picks the save
+                folder (usually Downloads); you can move the file to Desktop or anywhere else
+                after it saves.
+              </p>
+              <div className="share-modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={pdfSaving || !canDownload}
+                  onClick={() => void saveScopePdfFile()}
+                >
+                  {pdfSaving ? "Preparing…" : "Save PDF file"}
+                </button>
+                {pdfSaveError ? (
+                  <p style={{ color: "#ff9a9a", fontSize: 13, margin: 0 }}>{pdfSaveError}</p>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    triggerDownload(scopePdfInlineSrc);
+                    closePdfDownloadModal();
+                  }}
+                >
+                  Open in new tab (view, then print or save)
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => void copyFileDownloadLink()}
+                >
+                  {copyDone ? "Link copied" : "Copy file download link"}
+                </button>
+              </div>
+              <p className="share-modal-hint">
+                If “Save PDF file” does nothing, try “Open in new tab” and use your browser’s
+                menu to save or print to PDF. Safari sometimes handles downloads differently
+                than Chrome or Edge.
+              </p>
+              <div className="share-modal-close-row">
+                <button type="button" className="btn btn-secondary" onClick={closePdfDownloadModal}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+    </>
   );
 }

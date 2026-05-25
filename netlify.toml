@@ -1,6 +1,12 @@
+# Build settings: keep Publish directory in the Netlify UI empty or set to `.next`
+# so it does not override this file (otherwise publish can resolve to the repo root).
+
 [build]
   command = "npm run build"
   publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

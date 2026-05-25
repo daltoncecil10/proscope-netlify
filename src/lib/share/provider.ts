@@ -60,6 +60,25 @@ function resolveAccessState(expiresAtIso: string, isRevoked: boolean): ShareAcce
   return "active";
 }
 
+function shareStructureLabelFromMetadata(row: JsonRow): string | null {
+  const meta = row.metadata;
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
+  const m = meta as JsonRow;
+  return asString(m.share_structure_label) ?? asString(m.shareStructureLabel);
+}
+
+function insuredNameFromMetadata(row: JsonRow): string | null {
+  const meta = row.metadata;
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
+  const m = meta as JsonRow;
+  return (
+    asString(m.insured_name) ??
+    asString(m.insuredName) ??
+    asString(m.homeowner_name) ??
+    asString(m.homeownerName)
+  );
+}
+
 function mapRowToSharePackage(row: JsonRow, token: string, assets: ShareAsset[]): SharePackage {
   const nowIso = new Date().toISOString();
   const expiresAt = asIsoDate(row.expires_at ?? row.expiresAt, plusDaysIso(30));
@@ -76,6 +95,8 @@ function mapRowToSharePackage(row: JsonRow, token: string, assets: ShareAsset[])
       "Property address not provided",
     inspectorName:
       asString(row.inspector_name) ?? asString(row.inspector) ?? "ProScope Inspector",
+    insuredName: insuredNameFromMetadata(row),
+    shareStructureLabel: shareStructureLabelFromMetadata(row),
     createdAt: asIsoDate(row.created_at ?? row.createdAt, nowIso),
     expiresAt,
     accessState,
@@ -124,11 +145,14 @@ function getSupabaseEnv() {
 }
 
 function buildShareUrl(token: string) {
-  const base = (process.env.NEXT_PUBLIC_WEBSITE_URL || "http://localhost:3000").replace(
-    /\/+$/,
-    ""
-  );
-  return `${base}/share/${token}`;
+  const configured = process.env.NEXT_PUBLIC_WEBSITE_URL?.replace(/\/+$/, "") ?? "";
+  if (configured) {
+    return `${configured}/share/${token}`;
+  }
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin.replace(/\/+$/, "")}/share/${token}`;
+  }
+  return `http://localhost:3000/share/${token}`;
 }
 
 async function resolveAssetUrl(

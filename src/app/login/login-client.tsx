@@ -2,31 +2,41 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { isSupabaseConfigured, supabase, SUPABASE_SETUP_MESSAGE } from "@/lib/supabase/client";
 
 export function LoginClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const remembered = window.localStorage.getItem("proscope-remember-login-email");
-    if (remembered) {
-      setEmail(remembered);
-      setRememberMe(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => {
+    if (!isSupabaseConfigured) return;
+    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (sessionError) {
+        setError(sessionError.message);
+        return;
+      }
       if (data.session?.user) {
         router.replace("/dashboard");
       }
     });
   }, [router]);
+
+  if (!isSupabaseConfigured) {
+    return (
+      <main className="page">
+        <section className="dashboard-auth-wrap">
+          <div className="dashboard-auth-card">
+            <p className="eyebrow">ProScope Office</p>
+            <h1>Configuration required</h1>
+            <p className="muted">{SUPABASE_SETUP_MESSAGE}</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   const handleSignIn = async (event: FormEvent) => {
     event.preventDefault();
@@ -38,14 +48,14 @@ export function LoginClient() {
         password,
       });
       if (authError) throw authError;
-      if (rememberMe) {
-        window.localStorage.setItem("proscope-remember-login-email", email.trim().toLowerCase());
-      } else {
-        window.localStorage.removeItem("proscope-remember-login-email");
-      }
       router.replace("/dashboard");
     } catch (err) {
-      setError((err as Error)?.message ?? "Unable to sign in.");
+      const message = (err as Error)?.message ?? "Unable to sign in.";
+      setError(
+        message.includes("Invalid API key")
+          ? "Invalid Supabase anon key. In .env.local use the anon public key from Supabase → Project Settings → API, then restart npm run dev."
+          : message
+      );
     } finally {
       setLoading(false);
     }
@@ -77,14 +87,6 @@ export function LoginClient() {
               onChange={(event) => setPassword(event.target.value)}
               required
             />
-            <label className="office-inline-checkbox">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(event) => setRememberMe(event.target.checked)}
-              />
-              <span className="muted">Remember me on this device</span>
-            </label>
             <button className="btn btn-primary" type="submit" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
             </button>
@@ -95,3 +97,4 @@ export function LoginClient() {
     </main>
   );
 }
+

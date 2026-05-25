@@ -1,6 +1,5 @@
-import { ReactNode } from "react";
-import { OfficeShell } from "./office-shell";
+import { OfficeAuthProvider } from "@/contexts/OfficeAuthContext";
 
-export default function OfficeLayout({ children }: { children: ReactNode }) {
-  return <OfficeShell>{children}</OfficeShell>;
+export default function OfficeLayout({ children }: { children: React.ReactNode }) {
+  return <OfficeAuthProvider>{children}</OfficeAuthProvider>;
 }
