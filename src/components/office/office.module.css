@@ -565,6 +565,15 @@
   background: var(--info);
 }
 
+.statusInProgress {
+  background: var(--warn-glow);
+  color: var(--warn);
+}
+
+.statusInProgress .statusDot {
+  background: var(--warn);
+}
+
 .mono {
   font-family: var(--mono);
   font-size: 12px;
@@ -1041,7 +1050,8 @@
   margin-bottom: 12px;
 }
 
-.field label {
+.field label,
+.field > span {
   font-size: 11px;
   color: var(--ink-mute);
 }
@@ -1148,6 +1158,12 @@
 .qaTitle {
   font-weight: 600;
   font-size: 13px;
+}
+
+.qaFoot {
+  font-size: 11px;
+  color: var(--ink-mute);
+  margin-top: 4px;
 }
 
 .card {
@@ -1795,6 +1811,254 @@
   font-size: 11px;
   color: var(--ink-mute);
   font-family: var(--mono);
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.modalCard {
+  width: min(480px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.modalClose {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--ink-mute);
+  font-size: 22px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.modalClose:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.modalBody {
+  padding: 18px;
+}
+
+.modalRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.modalHint {
+  font-size: 11px;
+  color: var(--ink-mute);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.modalCardWide {
+  max-width: 720px;
+  width: min(720px, 96vw);
+}
+
+.collapseToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+}
+
+.collapseChevron {
+  color: var(--ink-mute);
+  font-size: 12px;
+}
+
+.filterRowBtn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.filterRowBtn:hover {
+  background: var(--surface-2);
+}
+
+.filterRowActive {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.calEvWrap {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.calEvDelete {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0;
+}
+
+.calEvWrap:hover .calEvDelete {
+  opacity: 1;
+}
+
+.calEvDelete:hover {
+  color: var(--danger, #c0392b);
+}
+
+.sharePanel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.sharePanelTitle {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.shareCheckRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.shareUrlField {
+  width: 100%;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.jobViewerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.jobViewerTile {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.jobViewerThumbBtn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: var(--surface-2);
+  cursor: pointer;
+  aspect-ratio: 1;
+}
+
+.jobViewerThumbBtn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.jobViewerPlaceholder {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--ink-mute);
+  background: var(--surface-2);
+}
+
+.jobViewerMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.rowMenuWrap {
+  position: relative;
+}
+
+.rowMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 160px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+  padding: 4px;
+}
+
+.rowMenuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  text-decoration: none;
+}
+
+.rowMenuItem:hover {
+  background: var(--surface-2);
 }
 
 @media (max-width: 900px) {

@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { JobEditModal } from "@/components/office/job-edit-modal";
+import { JobFilesModal } from "@/components/office/job-files-modal";
+import {
+  formValuesToScheduledAt,
+  NewJobModal,
+  type NewJobFormValues,
+} from "@/components/office/new-job-modal";
 import { OfficeShell } from "@/components/office/office-shell";
+import { ShareJobModal } from "@/components/office/share-job-modal";
 import styles from "@/components/office/office.module.css";
 import { useOfficeAuth } from "@/hooks/useOfficeAuth";
+import { createCalendarEvent } from "@/lib/calendar/events";
 import { listDashboardJobs } from "@/lib/dashboard/provider";
 import type { DashboardFilter, DashboardJob } from "@/lib/dashboard/types";
 import {
@@ -15,6 +24,11 @@ import {
   statusClassName,
   statusLabel,
 } from "@/lib/dashboard/utils";
+import { downloadJobPackage } from "@/lib/jobs/package-download";
+import { listTeamMembers } from "@/lib/team/store";
+import { createOwnerSharePackage } from "@/lib/share/provider";
+import { copyToClipboard, shareLink } from "@/lib/share/share-actions";
+
 function ExpiresCell({ job }: { job: DashboardJob }) {
   const urgency = expiresUrgency(job.expiresAt);
   const label = formatExpiresLabel(job.expiresAt);
@@ -27,6 +41,64 @@ function ExpiresCell({ job }: { job: DashboardJob }) {
   return <span className={className}>{label}</span>;
 }
 
+function JobRowMenu({
+  job,
+  open,
+  onToggle,
+  onClose,
+  onFiles,
+  onEdit,
+  onDownload,
+  onShare,
+}: {
+  job: DashboardJob;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onFiles: () => void;
+  onEdit: () => void;
+  onDownload: () => void;
+  onShare: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open, onClose]);
+
+  return (
+    <div className={styles.rowMenuWrap} ref={ref}>
+      <button type="button" className={styles.rowActionBtn} title="Actions" onClick={onToggle}>
+        ⋯
+      </button>
+      {open ? (
+        <div className={styles.rowMenu}>
+          <Link href={`/jobs/${job.id}`} className={styles.rowMenuItem} onClick={onClose}>
+            Open job
+          </Link>
+          <button type="button" className={styles.rowMenuItem} onClick={onFiles}>
+            View files
+          </button>
+          <button type="button" className={styles.rowMenuItem} onClick={onDownload}>
+            Download .zip
+          </button>
+          <button type="button" className={styles.rowMenuItem} onClick={onEdit}>
+            Edit details
+          </button>
+          <button type="button" className={styles.rowMenuItem} onClick={onShare}>
+            Share link
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function JobsClient() {
   const { user } = useOfficeAuth();
   const [jobs, setJobs] = useState<DashboardJob[]>([]);
@@ -35,6 +107,17 @@ export function JobsClient() {
   const [filter, setFilter] = useState<DashboardFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [menuJobId, setMenuJobId] = useState<string | null>(null);
+  const [newJobOpen, setNewJobOpen] = useState(false);
+  const [newJobSaving, setNewJobSaving] = useState(false);
+  const [newJobError, setNewJobError] = useState<string | null>(null);
+  const [editJob, setEditJob] = useState<DashboardJob | null>(null);
+  const [filesJob, setFilesJob] = useState<DashboardJob | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareJobId, setShareJobId] = useState<string | undefined>();
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const ownerEmail = user?.email ?? "";
 
   const refreshJobs = useCallback(async (userId: string) => {
     setJobsLoading(true);
@@ -71,14 +154,14 @@ export function JobsClient() {
       ready: 0,
       in_progress: 0,
       drafts: 0,
-      scheduled: 0,
+      upcoming: 0,
       expiring_soon: 0,
     };
     for (const j of jobs) {
       if (j.status === "ready") c.ready += 1;
       if (j.status === "in_progress") c.in_progress += 1;
       if (j.status === "draft") c.drafts += 1;
-      if (j.status === "scheduled") c.scheduled += 1;
+      if (j.status === "scheduled") c.upcoming += 1;
       if (filterJob(j, "expiring_soon")) c.expiring_soon += 1;
     }
     return c;
@@ -92,6 +175,75 @@ export function JobsClient() {
       return next;
     });
   };
+
+  const createJob = async (values: NewJobFormValues) => {
+    if (!user?.id) return;
+    setNewJobSaving(true);
+    setNewJobError(null);
+    try {
+      await createCalendarEvent(user.id, {
+        title: values.title,
+        address: values.address,
+        scheduledAt: formValuesToScheduledAt(values),
+        eventType: "inspection",
+        notes: values.notes,
+      });
+      setNewJobOpen(false);
+      await refreshJobs(user.id);
+    } catch (err) {
+      setNewJobError((err as Error)?.message ?? "Failed to create job");
+    } finally {
+      setNewJobSaving(false);
+    }
+  };
+
+  const downloadJob = async (job: DashboardJob) => {
+    try {
+      await downloadJobPackage(job);
+    } catch (err) {
+      window.alert((err as Error)?.message ?? "Download failed");
+    }
+  };
+
+  const quickShare = async (job: DashboardJob) => {
+    try {
+      const url =
+        job.shareUrl ??
+        (
+          await createOwnerSharePackage({
+            primaryJobId: job.id,
+            title: job.title,
+            address: job.address,
+            inspectorName: job.inspectorName,
+          })
+        ).url;
+      await shareLink(job.title, url);
+    } catch (err) {
+      try {
+        const url = job.shareUrl;
+        if (url) await copyToClipboard(url);
+      } catch {
+        window.alert((err as Error)?.message ?? "Could not share");
+      }
+    }
+  };
+
+  const bulkDownload = async () => {
+    const selected = jobs.filter((j) => selectedIds.has(j.id));
+    if (!selected.length) return;
+    setBulkBusy(true);
+    try {
+      for (const job of selected) {
+        await downloadJobPackage(job);
+      }
+    } catch (err) {
+      window.alert((err as Error)?.message ?? "Bulk download failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const members = user?.id && ownerEmail ? listTeamMembers(user.id, ownerEmail) : [];
 
   return (
     <OfficeShell
@@ -110,7 +262,7 @@ export function JobsClient() {
         </>
       }
       topbarEnd={
-        <button type="button" className={styles.btnPrimary}>
+        <button type="button" className={styles.btnPrimary} onClick={() => setNewJobOpen(true)}>
           + New job
         </button>
       }
@@ -126,7 +278,9 @@ export function JobsClient() {
             <div className={styles.focusLabel}>Ready to send</div>
             <div className={styles.focusValue}>{counts.ready}</div>
             <div className={styles.focusFoot}>
-              <Link href="/jobs">View ready →</Link>
+              <button type="button" className={styles.linkBtn} onClick={() => setFilter("ready")}>
+                View ready →
+              </button>
             </div>
           </div>
           <div className={styles.focusCell}>
@@ -157,8 +311,8 @@ export function JobsClient() {
                   ["all", "All", counts.all],
                   ["ready", "Ready", counts.ready],
                   ["in_progress", "In progress", counts.in_progress],
+                  ["upcoming", "Upcoming", counts.upcoming],
                   ["drafts", "Drafts", counts.drafts],
-                  ["scheduled", "Scheduled", counts.scheduled],
                   ["expiring_soon", "Expiring soon", counts.expiring_soon],
                 ] as const
               ).map(([key, label, count]) => (
@@ -171,14 +325,6 @@ export function JobsClient() {
                   {label} {count}
                 </button>
               ))}
-              <button
-                type="button"
-                className={`${styles.chip} ${styles.chipTrash} ${filter === "trash" ? styles.chipActive : ""}`}
-                onClick={() => setFilter("trash")}
-                title="Trash is coming soon"
-              >
-                Trash
-              </button>
             </div>
           </div>
 
@@ -186,14 +332,23 @@ export function JobsClient() {
             <div className={styles.bulkBar}>
               <span>{selectedIds.size} selected</span>
               <div className={styles.bulkActions}>
-                <button type="button" className={styles.btnSecondary}>
-                  Download as .zip
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  disabled={bulkBusy}
+                  onClick={() => void bulkDownload()}
+                >
+                  {bulkBusy ? "Downloading…" : "Download as .zip"}
                 </button>
-                <button type="button" className={styles.btnSecondary}>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={() => {
+                    setShareJobId([...selectedIds][0]);
+                    setShareOpen(true);
+                  }}
+                >
                   Share via link
-                </button>
-                <button type="button" className={styles.btnSecondary}>
-                  Move to trash
                 </button>
                 <button
                   type="button"
@@ -206,18 +361,11 @@ export function JobsClient() {
             </div>
           ) : null}
 
-          {filter === "trash" ? (
-            <p className={styles.loading} style={{ padding: 24 }}>
-              Trash bucket (7-day retention) is not wired to the database yet. Deleted jobs
-              will appear here in a future release.
-            </p>
-          ) : null}
-
           {jobsError ? (
             <p className={styles.error}>{jobsError}</p>
           ) : jobsLoading ? (
             <p className={styles.loading}>Loading jobs…</p>
-          ) : filter === "trash" ? null : (
+          ) : (
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
@@ -271,10 +419,15 @@ export function JobsClient() {
                           </div>
                         </td>
                         <td>
-                          <span className={styles.photoCountCell}>
+                          <button
+                            type="button"
+                            className={styles.photoCountCell}
+                            style={{ border: "none", background: "transparent", cursor: "pointer" }}
+                            onClick={() => setFilesJob(job)}
+                          >
                             <span aria-hidden>📷</span>
                             {job.photoCount}
-                          </span>
+                          </button>
                         </td>
                         <td>
                           <div className={styles.mono}>{inspected.date}</div>
@@ -285,20 +438,38 @@ export function JobsClient() {
                         </td>
                         <td>
                           <div className={styles.rowActions}>
-                            <Link
-                              href={`/jobs/${job.id}`}
-                              className={styles.rowActionBtn}
-                              title="Open job"
-                            >
-                              ↗
-                            </Link>
                             <button
                               type="button"
                               className={styles.rowActionBtn}
-                              title="More"
+                              title="Download package"
+                              onClick={() => void downloadJob(job)}
                             >
-                              ⋯
+                              ↓
                             </button>
+                            <JobRowMenu
+                              job={job}
+                              open={menuJobId === job.id}
+                              onToggle={() =>
+                                setMenuJobId((prev) => (prev === job.id ? null : job.id))
+                              }
+                              onClose={() => setMenuJobId(null)}
+                              onFiles={() => {
+                                setMenuJobId(null);
+                                setFilesJob(job);
+                              }}
+                              onEdit={() => {
+                                setMenuJobId(null);
+                                setEditJob(job);
+                              }}
+                              onDownload={() => {
+                                setMenuJobId(null);
+                                void downloadJob(job);
+                              }}
+                              onShare={() => {
+                                setMenuJobId(null);
+                                void quickShare(job);
+                              }}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -309,18 +480,54 @@ export function JobsClient() {
             </div>
           )}
 
-          {filter !== "trash" ? (
-            <div className={styles.tableFoot}>
-              <span>
-                Showing {filteredJobs.length} of {jobs.length} jobs
-              </span>
-              <Link href="/dashboard" className={styles.linkBtn}>
-                Dashboard view →
-              </Link>
-            </div>
-          ) : null}
+          <div className={styles.tableFoot}>
+            <span>
+              Showing {filteredJobs.length} of {jobs.length} jobs
+            </span>
+            <Link href="/dashboard" className={styles.linkBtn}>
+              Dashboard view →
+            </Link>
+          </div>
         </section>
       </div>
+
+      <NewJobModal
+        open={newJobOpen}
+        saving={newJobSaving}
+        error={newJobError}
+        showEventType={false}
+        onClose={() => {
+          if (!newJobSaving) setNewJobOpen(false);
+        }}
+        onSubmit={(values) => void createJob(values)}
+      />
+
+      <JobEditModal
+        open={Boolean(editJob)}
+        job={editJob}
+        onClose={() => setEditJob(null)}
+        onSaved={() => {
+          if (user?.id) void refreshJobs(user.id);
+        }}
+      />
+
+      <JobFilesModal open={Boolean(filesJob)} job={filesJob} onClose={() => setFilesJob(null)} />
+
+      {user?.id && ownerEmail ? (
+        <ShareJobModal
+          open={shareOpen}
+          jobs={jobs}
+          members={members}
+          userId={user.id}
+          ownerEmail={ownerEmail}
+          initialJobId={shareJobId}
+          onClose={() => {
+            setShareOpen(false);
+            setShareJobId(undefined);
+          }}
+          onShared={() => {}}
+        />
+      ) : null}
     </OfficeShell>
   );
 }

@@ -3,14 +3,15 @@ import {
   getDashboardReportActions,
   listOwnerSharePackages,
 } from "@/lib/share/provider";
-import type { DashboardJob, DashboardJobStatus, DashboardPhoto } from "./types";
-import { computeExpiresAt } from "./utils";
+import type { DashboardJob, DashboardPhoto } from "./types";
+import { computeExpiresAt, deriveJobStatus, formatScheduledLabel } from "./utils";
 
 type JobRow = {
   id: string;
   title: string | null;
   address: string | null;
   status: string | null;
+  scheduled_at: string | null;
   notes: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -39,56 +40,6 @@ function hashColor(seed: string): string {
   }
   const hue = Math.abs(hash) % 360;
   return `hsl(${hue} 42% 42%)`;
-}
-
-function normalizeStatus(
-  raw: string | null,
-  hasPdf: boolean,
-  scheduledFor: string | null
-): DashboardJobStatus {
-  const lower = (raw ?? "").trim().toLowerCase();
-  if (scheduledFor) {
-    const when = new Date(scheduledFor).getTime();
-    if (Number.isFinite(when) && when > Date.now()) return "scheduled";
-  }
-  if (hasPdf || lower === "ready" || lower === "complete" || lower === "completed") {
-    return "ready";
-  }
-  if (
-    lower === "in_progress" ||
-    lower === "in progress" ||
-    lower === "active" ||
-    lower === "inspecting"
-  ) {
-    return "in_progress";
-  }
-  if (lower === "scheduled") return "scheduled";
-  return "draft";
-}
-
-function formatScheduledLabel(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const isSameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
-  const time = date.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  if (isSameDay(date, now)) return `Today ${time}`;
-  if (isSameDay(date, tomorrow)) return `Tomorrow ${time}`;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 async function resolveInspector(userId: string) {
@@ -124,7 +75,7 @@ async function mapRowToJob(
   let pdfSizeBytes: number | null = null;
   let pdfUrl: string | null = null;
   let shareUrl: string | null = null;
-  const scheduledFor: string | null = null;
+  const scheduledAt = row.scheduled_at;
 
   try {
     const actions = await getDashboardReportActions(row.id);
@@ -140,7 +91,12 @@ async function mapRowToJob(
 
   const photoCount = await countPhotosForJob(row.id);
   const hasPdf = Boolean(pdfUrl);
-  const status = normalizeStatus(row.status, hasPdf, scheduledFor);
+  const status = deriveJobStatus({
+    hasPdf,
+    photoCount,
+    scheduledAt,
+    rawStatus: row.status,
+  });
   const inspectedAt = row.updated_at ?? row.created_at;
   const updatedAt = row.updated_at;
   const expiresAt = computeExpiresAt(updatedAt);
@@ -160,7 +116,8 @@ async function mapRowToJob(
     pdfSizeBytes,
     pdfUrl,
     shareUrl,
-    scheduledFor: status === "scheduled" ? formatScheduledLabel(scheduledFor) : null,
+    scheduledAt,
+    scheduledFor: status === "scheduled" ? formatScheduledLabel(scheduledAt) : null,
     rawStatus: row.status,
     notes: row.notes,
     createdAt: row.created_at,
@@ -171,8 +128,9 @@ async function mapRowToJob(
 export async function listDashboardJobs(userId: string): Promise<DashboardJob[]> {
   const { data, error } = await supabase
     .from("jobs")
-    .select("id,title,address,status,notes,created_at,updated_at")
+    .select("id,title,address,status,scheduled_at,notes,created_at,updated_at")
     .eq("user_id", userId)
+    .eq("archived", false)
     .order("updated_at", { ascending: false })
     .limit(200);
 
@@ -188,7 +146,7 @@ export async function getDashboardJob(
 ): Promise<DashboardJob | null> {
   const { data, error } = await supabase
     .from("jobs")
-    .select("id,title,address,status,notes,created_at,updated_at")
+    .select("id,title,address,status,scheduled_at,notes,created_at,updated_at")
     .eq("user_id", userId)
     .eq("id", jobId)
     .maybeSingle();

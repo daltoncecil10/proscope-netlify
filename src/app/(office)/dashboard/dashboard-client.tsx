@@ -2,9 +2,17 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CollapsibleCard } from "@/components/office/collapsible-card";
+import {
+  formValuesToScheduledAt,
+  NewJobModal,
+  type NewJobFormValues,
+} from "@/components/office/new-job-modal";
 import { OfficeShell } from "@/components/office/office-shell";
 import styles from "@/components/office/office.module.css";
 import { useOfficeAuth } from "@/hooks/useOfficeAuth";
+import { createCalendarEvent } from "@/lib/calendar/events";
+import { formatEventTime } from "@/lib/calendar/events";
 import { listDashboardJobs } from "@/lib/dashboard/provider";
 import type { DashboardJob } from "@/lib/dashboard/types";
 import { daysUntil, filterJob, formatExpiresLabel } from "@/lib/dashboard/utils";
@@ -32,6 +40,10 @@ export function DashboardClient() {
   const { user } = useOfficeAuth();
   const [jobs, setJobs] = useState<DashboardJob[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
+  const [newJobOpen, setNewJobOpen] = useState(false);
+  const [repairOpen, setRepairOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const refreshJobs = useCallback(async (userId: string) => {
     setJobsLoading(true);
@@ -71,6 +83,10 @@ export function DashboardClient() {
         .slice(0, 5),
     [jobs]
   );
+  const beiJobs = useMemo(
+    () => jobs.filter((j) => (j.notes ?? "").includes("[type:bei]")).slice(0, 3),
+    [jobs]
+  );
 
   const weekDays = useMemo(() => {
     const start = new Date();
@@ -81,8 +97,8 @@ export function DashboardClient() {
       const label = d.toLocaleDateString(undefined, { weekday: "short" });
       const isToday = i === 0;
       const dayJobs = jobs.filter((j) => {
-        if (!j.inspectedAt) return false;
-        const jd = new Date(j.inspectedAt);
+        if (!j.scheduledAt) return false;
+        const jd = new Date(j.scheduledAt);
         return (
           jd.getFullYear() === d.getFullYear() &&
           jd.getMonth() === d.getMonth() &&
@@ -92,6 +108,28 @@ export function DashboardClient() {
       return { d, label, isToday, dayJobs };
     });
   }, [jobs]);
+
+  const createJob = async (values: NewJobFormValues, eventType: "inspection" | "bei") => {
+    if (!user?.id) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await createCalendarEvent(user.id, {
+        title: values.title,
+        address: values.address,
+        scheduledAt: formValuesToScheduledAt(values),
+        eventType,
+        notes: values.notes,
+      });
+      setNewJobOpen(false);
+      setRepairOpen(false);
+      await refreshJobs(user.id);
+    } catch (err) {
+      setSaveError((err as Error)?.message ?? "Failed to create job");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <OfficeShell
@@ -105,7 +143,7 @@ export function DashboardClient() {
         </>
       }
       topbarEnd={
-        <button type="button" className={styles.btnPrimary}>
+        <button type="button" className={styles.btnPrimary} onClick={() => setNewJobOpen(true)}>
           + New job
         </button>
       }
@@ -125,30 +163,29 @@ export function DashboardClient() {
         </p>
 
         <div className={styles.qaGrid}>
-          <button type="button" className={styles.qaCard}>
-            <span className={styles.qaArrow}>↗</span>
+          <button type="button" className={styles.qaCard} onClick={() => setNewJobOpen(true)}>
             <span className={styles.qaIcon}>+</span>
             <span className={styles.qaTitle}>New job</span>
+            <span className={styles.qaFoot}>Syncs to mobile app</span>
           </button>
-          <Link href="/calendar" className={styles.qaCard}>
-            <span className={styles.qaArrow}>↗</span>
-            <span className={styles.qaIcon}>📅</span>
-            <span className={styles.qaTitle}>Calendar</span>
-          </Link>
-          <a
-            href="https://www.buildingexperts.institute/certifications-repairabilityassessor"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
             className={`${styles.qaCard} ${styles.qaCardRepair}`}
+            onClick={() => setRepairOpen(true)}
           >
-            <span className={styles.qaArrow}>↗</span>
             <span className={styles.qaIcon}>◆</span>
-            <span className={styles.qaTitle}>New Repairability Assessment</span>
-          </a>
+            <span className={styles.qaTitle}>Repairability assessment</span>
+            <span className={styles.qaFoot}>Schedule BEI field work</span>
+          </button>
           <Link href="/jobs" className={styles.qaCard}>
-            <span className={styles.qaArrow}>↗</span>
             <span className={styles.qaIcon}>◎</span>
-            <span className={styles.qaTitle}>Open CRM</span>
+            <span className={styles.qaTitle}>Browse jobs</span>
+            <span className={styles.qaFoot}>{readyCount} ready to send</span>
+          </Link>
+          <Link href="/team" className={styles.qaCard}>
+            <span className={styles.qaIcon}>👥</span>
+            <span className={styles.qaTitle}>Team & sharing</span>
+            <span className={styles.qaFoot}>Invite teammates</span>
           </Link>
         </div>
 
@@ -163,10 +200,12 @@ export function DashboardClient() {
                 <div className={styles.weekDayLabel}>{label}</div>
                 {dayJobs.length ? (
                   dayJobs.slice(0, 2).map((j) => (
-                    <div key={j.id} className={styles.weekEv}>
-                      <div className={styles.weekEvTime}>—</div>
+                    <Link key={j.id} href={`/jobs/${j.id}`} className={styles.weekEv}>
+                      <div className={styles.weekEvTime}>
+                        {j.scheduledAt ? formatEventTime(j.scheduledAt) : "—"}
+                      </div>
                       {j.title}
-                    </div>
+                    </Link>
                   ))
                 ) : (
                   <div className={styles.weekEv} style={{ color: "var(--ink-faint)" }}>
@@ -179,13 +218,14 @@ export function DashboardClient() {
         </section>
 
         <div className={styles.twoCol}>
-          <section className={styles.card}>
-            <div className={styles.cardHeader}>
-              In progress
+          <CollapsibleCard
+            title="In progress"
+            actions={
               <Link href="/jobs" className={styles.linkBtn}>
                 View all
               </Link>
-            </div>
+            }
+          >
             <div className={styles.ipGrid}>
               {inProgressJobs.length ? (
                 inProgressJobs.map((job) => (
@@ -209,10 +249,9 @@ export function DashboardClient() {
                 </p>
               )}
             </div>
-          </section>
+          </CollapsibleCard>
 
-          <section className={styles.card}>
-            <div className={styles.cardHeader}>Expiring soon</div>
+          <CollapsibleCard title="Expiring soon">
             <div className={styles.expireList}>
               {expiringJobs.length ? (
                 expiringJobs.map((job) => {
@@ -257,52 +296,51 @@ export function DashboardClient() {
                 <p className={styles.loading}>Nothing expiring in the next 7 days.</p>
               )}
             </div>
-          </section>
+          </CollapsibleCard>
         </div>
 
         <section className={`${styles.card} ${styles.repairSection}`}>
           <div className={`${styles.cardHeader} ${styles.repairHeader}`}>
             Repairability Assessments (BEI)
             <span style={{ fontSize: 11, fontWeight: 400, color: "var(--ink-mute)" }}>
-              • Powered by BEI · Building Experts Institute
+              • Field workflow in ProScope mobile
             </span>
           </div>
           <div className={styles.repairGrid}>
             <div className={styles.repairHero}>
               <span style={{ color: "var(--bei)", fontSize: 20 }}>◆</span>
-              <h3>Start a new Repairability Assessment</h3>
+              <h3>Schedule a Repairability Assessment</h3>
               <p style={{ margin: 0, fontSize: 12, color: "var(--ink-mute)" }}>
-                Field workflow runs in the ProScope mobile app.
+                Creates a job in your account and opens in the mobile app.
               </p>
-              <a
-                href="https://www.buildingexperts.institute/certifications-repairabilityassessor"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
                 className={styles.linkBtn}
-                style={{ marginTop: 12, display: "inline-block" }}
+                style={{ marginTop: 12, display: "inline-block", border: "none", background: "none", cursor: "pointer" }}
+                onClick={() => setRepairOpen(true)}
               >
-                Begin assessment →
-              </a>
+                Schedule assessment →
+              </button>
             </div>
-            <div className={styles.raCard}>
-              <span className={styles.statusPill} style={{ marginBottom: 8 }}>
-                In progress
-              </span>
-              <div style={{ fontWeight: 600 }}>Sample assessment</div>
-              <p style={{ margin: "6px 0", fontSize: 11, color: "var(--ink-mute)" }}>
-                Connect mobile sync to list active assessments here.
-              </p>
-              <div
-                style={{
-                  height: 4,
-                  background: "var(--surface-3)",
-                  borderRadius: 2,
-                  marginTop: 8,
-                }}
-              >
-                <div style={{ width: "45%", height: "100%", background: "var(--bei)" }} />
+            {beiJobs.length ? (
+              beiJobs.map((job) => (
+                <Link key={job.id} href={`/jobs/${job.id}`} className={styles.raCard}>
+                  <span className={styles.statusPill} style={{ marginBottom: 8 }}>
+                    {job.status === "ready" ? "Ready" : "Scheduled"}
+                  </span>
+                  <div style={{ fontWeight: 600 }}>{job.title}</div>
+                  <p style={{ margin: "6px 0", fontSize: 11, color: "var(--ink-mute)" }}>
+                    {job.address}
+                  </p>
+                </Link>
+              ))
+            ) : (
+              <div className={styles.raCard}>
+                <span style={{ fontSize: 11, color: "var(--ink-mute)" }}>
+                  No repairability jobs yet — schedule one above.
+                </span>
               </div>
-            </div>
+            )}
             <div className={styles.raCard}>
               <span style={{ fontSize: 11, color: "var(--ink-mute)" }}>
                 {readyCount} scope reports ready to send
@@ -314,6 +352,36 @@ export function DashboardClient() {
           </div>
         </section>
       </div>
+
+      <NewJobModal
+        open={newJobOpen}
+        title="New job"
+        saving={saving}
+        error={saveError}
+        showEventType={false}
+        onClose={() => {
+          if (!saving) {
+            setNewJobOpen(false);
+            setSaveError(null);
+          }
+        }}
+        onSubmit={(values) => void createJob(values, "inspection")}
+      />
+
+      <NewJobModal
+        open={repairOpen}
+        title="New Repairability Assessment"
+        saving={saving}
+        error={saveError}
+        showEventType={false}
+        onClose={() => {
+          if (!saving) {
+            setRepairOpen(false);
+            setSaveError(null);
+          }
+        }}
+        onSubmit={(values) => void createJob(values, "bei")}
+      />
     </OfficeShell>
   );
 }

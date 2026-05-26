@@ -15,6 +15,7 @@ export type DashboardJob = {
   pdfSizeBytes: number | null;
   pdfUrl: string | null;
   shareUrl: string | null;
+  scheduledAt: string | null;
   scheduledFor: string | null;
   rawStatus: string | null;
   notes: string | null;
@@ -36,7 +37,7 @@ export type DashboardFilter =
   | "ready"
   | "in_progress"
   | "drafts"
-  | "scheduled"
+  | "upcoming"
   | "expiring_soon"
   | "trash";
 
